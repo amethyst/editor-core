@@ -11,7 +11,6 @@ use amethyst::ui::{Anchor, TtfFormat, UiText, UiTransform};
 use systems::ScoreText;
 use {Ball, Paddle, Side};
 use {ARENA_HEIGHT, ARENA_WIDTH, SPRITESHEET_SIZE};
-use std::net::UdpSocket;
 
 pub struct Pong;
 
@@ -32,11 +31,6 @@ impl<'a, 'b> SimpleState<'a, 'b> for Pong {
         initialise_audio(world);
         initialise_score(world);
         hide_cursor(world);
-
-        // Setup the socket for communicating with the editor and add it as a resource.
-        let socket = UdpSocket::bind("127.0.0.1:8001").expect("Failed to bind socket");
-        socket.connect("127.0.0.1:8000").expect("Failed to connect to editor");
-        world.add_resource(socket);
     }
 }
 

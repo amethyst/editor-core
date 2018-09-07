@@ -184,29 +184,31 @@ impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource + Serialize {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SyncEditorSystem {
     sender: Sender<SerializedData>,
     receiver: Receiver<SerializedData>,
+    socket: UdpSocket,
 }
 
 impl SyncEditorSystem {
     pub fn new() -> Self {
+        // Create the channel for sending serialized component data to the sync system.
         let (sender, receiver) = crossbeam_channel::unbounded();
-        SyncEditorSystem { sender, receiver }
+
+        // Setup the socket for communicating with the editor and add it as a resource.
+        let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
+        socket.connect("127.0.0.1:8000").expect("Failed to connect to editor");
+
+        SyncEditorSystem { sender, receiver, socket }
     }
 }
 
 
 impl<'a> System<'a> for SyncEditorSystem {
-    type SystemData = (
-        ReadExpect<'a, UdpSocket>,
-        Entities<'a>,
-    );
+    type SystemData = Entities<'a>;
 
-    fn run(&mut self, data: Self::SystemData) {
-        let (socket, entities) = data;
-
+    fn run(&mut self, entities: Self::SystemData) {
         let mut components_string = String::new();
         let mut resources_string = String::new();
         while let Some(serialized) = self.receiver.try_recv() {
@@ -264,6 +266,6 @@ impl<'a> System<'a> for SyncEditorSystem {
         message_string.push_str("\u{C}");
 
         // Send the JSON message.
-        socket.send(message_string.as_bytes()).expect("Failed to send message");
+        self.socket.send(message_string.as_bytes()).expect("Failed to send message");
     }
 }

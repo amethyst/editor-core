@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["David LeGare <dlegare.1001@gmail.com>"]
 
 [dependencies]
-amethyst = { version = "0.8" }
+amethyst = "0.8"
 crossbeam-channel = "0.2.4"
 log = "0.4.4"
 serde = { version = "1.0", features = ["derive"] }
