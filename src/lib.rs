@@ -1,3 +1,73 @@
+//! Provides functionality that allows an Amethyst game to communicate with an editor.
+//!
+//! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
+//! In order to visualize your game's state in an editor, you'll need to register
+//! [`SyncEditorSystem`], along with a `SyncComponentSystem<T>` for each component that you
+//! want to visualize, and a `SyncResourceSystem<T>` for each resource you want to visualize.
+//!
+//! # Example
+//!
+//! ```
+//! extern crate amethyst;
+//! extern crate amethyst_editor_sync;
+//!
+//! use amethyst::*;
+//! use amethyst_editor_sync::*;
+//!
+//! // Create a root `SyncEditorSystem` to coordinate sending all data to the editor.
+//! let editor_system = SyncEditorSystem::new();
+//!
+//! let game_data = GameDataBuilder::default()
+//!     // Register the systems for your game first.
+//!
+//!     // Insert a barrier to ensure that the editor syncing runs after all
+//!     // other systems have finished.
+//!     .with_barrier()
+//!
+//!     // Register any engine-specific components you want to visualize.
+//!     .with(
+//!         SyncComponentSystem::<Transform>::new("Transform", &editor_system),
+//!         "editor_transform",
+//!         &[],
+//!     )
+//!
+//!     // Register any custom components that you use in your game.
+//!     .with(
+//!         SyncComponentSystem::<Foo>::new("Foo", &editor_system),
+//!         "editor_foo",
+//!         &[],
+//!     )
+//!
+//!     // Register the `SyncEditorSystem` as thread local to ensure it runs last,
+//!     // after the other systems have had a chance to serialize the state data
+//!     // for all components/resources.
+//!     .with_thread_local(editor_system);
+//!
+//! // Make sure you enable serialization for your custom components and resources!
+//! #[derive(Serialize, Deserialize)]
+//! struct Foo {
+//!     bar: usize,
+//!     baz: String,
+//! }
+//! ```
+//!
+//! # Usage
+//!
+//! First, create a [`SyncEditorSystem`] object. Unlike most systems, you must create this ahead
+//! of time because you will need to use it when setting up syncing for each component/resource
+//! type.
+//!
+//! Create your [`GameDataBuilder`] and register your game's systems. Then, insert a barrier
+//! using [`with_barrier`]. You must then register a system for each of the component and
+//! resource types that you want to see in the editor:
+//!
+//! * For each component, register a [`SyncComponentSystem<T>`], specifying the name of the
+//!   component and its concrete type. The system should have no dependencies
+//! * For each resource, register a [`SyncResourceSystem<T>`], specifying the name of the
+//!   resource and its concrete type. The system should have no dependencies.
+//!
+//! Finally, register the [`SyncEditorSystem`] that you first created as a thread-local system.
+
 use std::collections::HashMap;
 use amethyst::ecs::*;
 use amethyst::shred::Resource;
