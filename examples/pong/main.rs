@@ -80,8 +80,11 @@ fn main() -> amethyst::Result<()> {
 
     let assets_dir = format!("{}/examples/assets/", env!("CARGO_MANIFEST_DIR"));
 
-    let editor_system = SyncEditorSystem::new();
-
+    let editor_system = SyncEditorSystem::new()
+        .sync_component::<Transform>("Transform")
+        .sync_component::<Ball>("Ball")
+        .sync_component::<Paddle>("Paddle")
+        .sync_resource::<ScoreBoard>("ScoreBoard");
     let game_data = GameDataBuilder::default()
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path)?,
@@ -91,11 +94,6 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new().with_dep(&["ball_system", "paddle_system"]))?
         .with_bundle(AudioBundle::new(|music: &mut Music| music.music.next()))?
         .with_bundle(UiBundle::<String, String>::new())?
-        .with_barrier()
-        .with(SyncComponentSystem::<Transform>::new("Transform", &editor_system), "editor_transform", &[])
-        .with(SyncComponentSystem::<Ball>::new("Ball", &editor_system), "editor_ball", &[])
-        .with(SyncComponentSystem::<Paddle>::new("Paddle", &editor_system), "editor_paddle", &[])
-        .with(SyncResourceSystem::<ScoreBoard>::new("ScoreBoard", &editor_system), "editor_score_board", &[])
         .with_thread_local(editor_system);
     let mut game = Application::build(assets_dir, Pong)?
         .with_frame_limit(

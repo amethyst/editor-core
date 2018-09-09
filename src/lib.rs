@@ -1,9 +1,8 @@
 //! Provides functionality that allows an Amethyst game to communicate with an editor.
 //!
 //! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
-//! In order to visualize your game's state in an editor, you'll need to register
-//! [`SyncEditorSystem`], along with a `SyncComponentSystem<T>` for each component that you
-//! want to visualize, and a `SyncResourceSystem<T>` for each resource you want to visualize.
+//! In order to visualize your game's state in an editor, you'll also need to register each component
+//! and resource that you want to visualize.
 //!
 //! # Example
 //!
@@ -15,32 +14,14 @@
 //! use amethyst_editor_sync::*;
 //!
 //! // Create a root `SyncEditorSystem` to coordinate sending all data to the editor.
-//! let editor_system = SyncEditorSystem::new();
+//! let editor_system = SyncEditorSystem::new()
+//!     // Register any engine-specific components you want to visualize.
+//!     .sync_component::<Transform>("Transform")
+//!     // Register any custom components that you use in your game.
+//!     .sync_component::<Foo>("Foo")
 //!
 //! let game_data = GameDataBuilder::default()
-//!     // Register the systems for your game first.
-//!
-//!     // Insert a barrier to ensure that the editor syncing runs after all
-//!     // other systems have finished.
-//!     .with_barrier()
-//!
-//!     // Register any engine-specific components you want to visualize.
-//!     .with(
-//!         SyncComponentSystem::<Transform>::new("Transform", &editor_system),
-//!         "editor_transform",
-//!         &[],
-//!     )
-//!
-//!     // Register any custom components that you use in your game.
-//!     .with(
-//!         SyncComponentSystem::<Foo>::new("Foo", &editor_system),
-//!         "editor_foo",
-//!         &[],
-//!     )
-//!
-//!     // Register the `SyncEditorSystem` as thread local to ensure it runs last,
-//!     // after the other systems have had a chance to serialize the state data
-//!     // for all components/resources.
+//!     // Register the `SyncEditorSystem` as thread local to ensure it runs last.
 //!     .with_thread_local(editor_system);
 //!
 //! // Make sure you enable serialization for your custom components and resources!
@@ -53,18 +34,13 @@
 //!
 //! # Usage
 //!
-//! First, create a [`SyncEditorSystem`] object. Unlike most systems, you must create this ahead
-//! of time because you will need to use it when setting up syncing for each component/resource
-//! type.
-//!
-//! Create your [`GameDataBuilder`] and register your game's systems. Then, insert a barrier
-//! using [`with_barrier`]. You must then register a system for each of the component and
+//! First, create a [`SyncEditorSystem`] object. You must then register each of the component and
 //! resource types that you want to see in the editor:
 //!
-//! * For each component, register a [`SyncComponentSystem<T>`], specifying the name of the
-//!   component and its concrete type. The system should have no dependencies
-//! * For each resource, register a [`SyncResourceSystem<T>`], specifying the name of the
-//!   resource and its concrete type. The system should have no dependencies.
+//! * For each component `T`, register the component with `sync_component::<T>(name)`, specifying
+//!   the name of the component and its concrete type.
+//! * For each resource, register the component with `sync_resource::<T>(name)`, specifying the
+//!   name of the resource and its concrete type.
 //!
 //! Finally, register the [`SyncEditorSystem`] that you first created as a thread-local system.
 
@@ -78,6 +54,7 @@ extern crate serde_json;
 
 use std::collections::HashMap;
 use amethyst::ecs::*;
+use amethyst::ecs::world::EntitiesRes;
 use amethyst::shred::Resource;
 use crossbeam_channel::{Receiver, Sender};
 use serde::Serialize;
@@ -95,11 +72,6 @@ struct Message<T> {
     data: T,
 }
 
-enum SerializedData {
-    Resource(String),
-    Component(String),
-}
-
 #[derive(Debug, Clone, Default, Serialize)]
 struct SerializedComponent<'a, T: 'a> {
     name: &'static str,
@@ -112,123 +84,72 @@ struct SerializedResource<'a, T: 'a> {
     data: &'a T,
 }
 
-#[derive(Debug, Clone)]
-pub struct SyncComponentSystem<T> {
-    name: &'static str,
-    sender: Sender<SerializedData>,
-    _marker: PhantomData<T>,
-}
-
-impl<T> SyncComponentSystem<T> {
-    pub fn new(name: &'static str, send_to: &SyncEditorSystem) -> Self {
-        SyncComponentSystem {
-            name,
-            sender: send_to.sender.clone(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component + Serialize {
-    type SystemData = (
-        Entities<'a>,
-        ReadStorage<'a, T>,
-    );
-
-    fn run(&mut self, data: Self::SystemData) {
-        let (entities, transforms) = data;
-
-        let mut entity_data = Vec::<SerializableEntity>::new();
-        for (entity,) in (&*entities,).join() {
-            entity_data.push(entity.into());
-        }
-
-        let mut component_data = HashMap::new();
-        for (entity, transform) in (&*entities, &transforms).join() {
-            component_data.insert(entity.id(), transform);
-        }
-        let serialized = serde_json::to_string(&SerializedComponent { name: self.name, data: component_data }).expect("Failed to serialize message");
-
-        self.sender.send(SerializedData::Component(serialized));
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SyncResourceSystem<T> {
-    name: &'static str,
-    sender: Sender<SerializedData>,
-    _marker: PhantomData<T>,
-}
-
-impl<T> SyncResourceSystem<T> {
-    pub fn new(name: &'static str, send_to: &SyncEditorSystem) -> Self {
-        SyncResourceSystem {
-            name,
-            sender: send_to.sender.clone(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource + Serialize {
-    type SystemData = ReadExpect<'a, T>;
-
-    fn run(&mut self, data: Self::SystemData) {
-        let serialized = serde_json::to_string(&SerializedResource { name: self.name, data: &*data }).expect("Failed to serialize resource");
-        self.sender.send(SerializedData::Resource(serialized));
-    }
-}
-
-#[derive(Debug)]
-pub struct SyncEditorSystem {
-    sender: Sender<SerializedData>,
-    receiver: Receiver<SerializedData>,
+/// Syncs all components and resources specified by the types.
+///
+/// T is a list of all synced component types.
+/// U is a list of all synced resource types.
+pub struct SyncEditorSystem<T, U> {
+    component_names: Vec<&'static str>,
+    resource_names: Vec<&'static str>,
     socket: UdpSocket,
+    _phantom: PhantomData<(T, U)>,
 }
 
-impl SyncEditorSystem {
-    pub fn new() -> Self {
-        // Create the channel for sending serialized component data to the sync system.
-        let (sender, receiver) = crossbeam_channel::unbounded();
-
+impl SyncEditorSystem<(), ()> {
+    pub fn new() -> SyncEditorSystem<(), ()> {
         // Setup the socket for communicating with the editor and add it as a resource.
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
         socket.connect("127.0.0.1:8000").expect("Failed to connect to editor");
 
-        SyncEditorSystem { sender, receiver, socket }
+        SyncEditorSystem {
+            component_names: Vec::new(),
+            resource_names: Vec::new(),
+            socket,
+            _phantom: PhantomData,
+        }
     }
 }
 
-
-impl<'a> System<'a> for SyncEditorSystem {
-    type SystemData = Entities<'a>;
-
-    fn run(&mut self, entities: Self::SystemData) {
-        let mut components_string = String::new();
-        let mut resources_string = String::new();
-        while let Some(serialized) = self.receiver.try_recv() {
-            match serialized {
-                SerializedData::Component(component) => {
-                    // Insert a comma between each component so that it's valid JSON.
-                    if components_string.len() > 0 {
-                        components_string.push(',');
-                    }
-
-                    // Add the component to the JSON chunk for components.
-                    components_string.push_str(&component);
-                }
-
-                SerializedData::Resource(resource) => {
-                    // Insert a comma between each resource so that it's valid JSON.
-                    if resources_string.len() > 0 {
-                        resources_string.push(',');
-                    }
-
-                    // Add the resource to the JSON chunk for resources.
-                    resources_string.push_str(&resource);
-                }
-            }
+impl<T, U> SyncEditorSystem<T, U> {
+    pub fn sync_component<C>(mut self, name: &'static str) -> SyncEditorSystem<(C, T), U>
+    where
+        C: Component + Serialize,
+    {
+        self.component_names.push(name);
+        SyncEditorSystem {
+            component_names: self.component_names,
+            resource_names: self.resource_names,
+            socket: self.socket,
+            _phantom: PhantomData,
         }
+    }
+
+    pub fn sync_resource<R>(mut self, name: &'static str) -> SyncEditorSystem<T, (R, U)>
+    where
+        R: Resource + Serialize,
+    {
+        self.resource_names.push(name);
+        SyncEditorSystem {
+            component_names: self.component_names,
+            resource_names: self.resource_names,
+            socket: self.socket,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T, U> System<'a> for SyncEditorSystem<T, U>
+where
+    T: ComponentSet<'a>,
+    U: ResourceSet<'a>,
+{
+    type SystemData = (Entities<'a>, T::SystemData, U::SystemData);
+
+    fn run(&mut self, (entities, components, resources): Self::SystemData) {
+        let components_string =
+            T::serialize_json(&*entities, components, &self.component_names).join(",");
+        let resources_string =
+            U::serialize_json(resources, &self.resource_names).join(",");
 
         let mut entity_data = Vec::<SerializableEntity>::new();
         for (entity,) in (&*entities,).join() {
@@ -259,5 +180,93 @@ impl<'a> System<'a> for SyncEditorSystem {
 
         // Send the JSON message.
         self.socket.send(message_string.as_bytes()).expect("Failed to send message");
+    }
+
+    fn setup(&mut self, res: &mut Resources) {
+        Self::SystemData::setup(res);
+        // In order to match the order of the type list.
+        self.component_names.reverse();
+        self.resource_names.reverse();
+    }
+}
+
+pub trait ComponentSet<'a> {
+    type SystemData: SystemData<'a>;
+
+    /// Serialize each component in a json map. Does not need to return the components in order.
+    fn serialize_json(
+        entities: &EntitiesRes,
+        data: Self::SystemData,
+        names: &[&'static str],
+    ) -> Vec<String>;
+}
+
+impl<'a> ComponentSet<'a> for () {
+    type SystemData = ();
+
+    fn serialize_json(_: &EntitiesRes, _: Self::SystemData, _: &[&'static str]) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+impl<'a, A, B> ComponentSet<'a> for (A, B)
+where
+    A: Component + Serialize,
+    B: ComponentSet<'a>,
+{
+    type SystemData = (ReadStorage<'a, A>, B::SystemData);
+
+    fn serialize_json(
+        entities: &EntitiesRes,
+        (component, component_rest): Self::SystemData,
+        names: &[&'static str],
+    ) -> Vec<String> {
+        let mut res = B::serialize_json(entities, component_rest, &names[1..]);
+        let component_data = (entities, &component)
+            .join()
+            .map(|(e, c)| (e.id(), c))
+            .collect();
+        let json = serde_json::to_string(&SerializedComponent {
+            name: names[0],
+            data: component_data,
+        }).expect("Failed to serialize message");
+        res.push(json);
+        res
+    }
+}
+
+pub trait ResourceSet<'a> {
+    type SystemData: SystemData<'a>;
+
+    /// Serialize each resource. Does not need to return the resources in order.
+    fn serialize_json(data: Self::SystemData, names: &[&'static str]) -> Vec<String>;
+}
+
+impl<'a> ResourceSet<'a> for () {
+    type SystemData = ();
+
+    fn serialize_json(_: Self::SystemData, _: &[&'static str]) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+impl<'a, A, B> ResourceSet<'a> for (A, B)
+where
+    A: Resource + Serialize,
+    B: ResourceSet<'a>,
+{
+    type SystemData = (ReadExpect<'a, A>, B::SystemData);
+
+    fn serialize_json(
+        (resource, resource_rest): Self::SystemData,
+        names: &[&'static str],
+    ) -> Vec<String> {
+        let mut res = B::serialize_json(resource_rest, &names[1..]);
+        let json = serde_json::to_string(&SerializedResource {
+            name: names[0],
+            data: &*resource,
+        }).expect("Failed to serialize resource");
+        res.push(json);
+        res
     }
 }
