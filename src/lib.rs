@@ -68,14 +68,6 @@
 //!
 //! Finally, register the [`SyncEditorSystem`] that you first created as a thread-local system.
 
-use std::collections::HashMap;
-use amethyst::ecs::*;
-use amethyst::shred::Resource;
-use crossbeam_channel::{Receiver, Sender};
-use serde::Serialize;
-use serde::export::PhantomData;
-use std::net::UdpSocket;
-
 extern crate amethyst;
 extern crate crossbeam_channel;
 #[macro_use]
@@ -84,11 +76,17 @@ extern crate log;
 extern crate serde;
 extern crate serde_json;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-struct EntityData {
-    id: u32,
-    generation: i32,
-}
+use std::collections::HashMap;
+use amethyst::ecs::*;
+use amethyst::shred::Resource;
+use crossbeam_channel::{Receiver, Sender};
+use serde::Serialize;
+use serde::export::PhantomData;
+use std::net::UdpSocket;
+
+pub use ::serializable_entity::SerializableEntity;
+
+mod serializable_entity;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message<T> {
@@ -140,12 +138,9 @@ impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component + Serialize
     fn run(&mut self, data: Self::SystemData) {
         let (entities, transforms) = data;
 
-        let mut entity_data = Vec::new();
+        let mut entity_data = Vec::<SerializableEntity>::new();
         for (entity,) in (&*entities,).join() {
-            entity_data.push(EntityData {
-                id: entity.id(),
-                generation: entity.gen().id(),
-            });
+            entity_data.push(entity.into());
         }
 
         let mut component_data = HashMap::new();
@@ -235,12 +230,9 @@ impl<'a> System<'a> for SyncEditorSystem {
             }
         }
 
-        let mut entity_data = Vec::new();
+        let mut entity_data = Vec::<SerializableEntity>::new();
         for (entity,) in (&*entities,).join() {
-            entity_data.push(EntityData {
-                id: entity.id(),
-                generation: entity.gen().id(),
-            });
+            entity_data.push(entity.into());
         }
         let entity_string = serde_json::to_string(&entity_data).expect("Failed to serialize entities");
 
