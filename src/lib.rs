@@ -13,6 +13,7 @@
 //! extern crate amethyst_editor_sync;
 //!
 //! use amethyst::*;
+//! use amethyst::core::*;
 //! use amethyst_editor_sync::*;
 //!
 //! // Create a `SyncEditorBundle` which will create all necessary systems to send the components
