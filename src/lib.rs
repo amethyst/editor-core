@@ -11,6 +11,8 @@
 //! ```
 //! extern crate amethyst;
 //! extern crate amethyst_editor_sync;
+//! #[macro_use]
+//! extern crate serde;
 //!
 //! use amethyst::*;
 //! use amethyst::core::*;
