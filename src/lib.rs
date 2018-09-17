@@ -16,8 +16,10 @@
 //!
 //! use amethyst::*;
 //! use amethyst::core::*;
+//! use amethyst::ecs::*;
 //! use amethyst_editor_sync::*;
 //!
+//! # fn main() -> Result<(), amethyst::Error> {
 //! // Create a `SyncEditorBundle` which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
@@ -28,12 +30,18 @@
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
+//! # Ok(())
+//! # }
 //!
 //! // Make sure you enable serialization for your custom components and resources!
 //! #[derive(Serialize, Deserialize)]
 //! struct Foo {
 //!     bar: usize,
 //!     baz: String,
+//! }
+//!
+//! impl Component for Foo {
+//!     type Storage = DenseVecStorage<Self>;
 //! }
 //! ```
 //!
