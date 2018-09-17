@@ -21,7 +21,7 @@
 //!     // Register any engine-specific components you want to visualize.
 //!     .sync_component::<Transform>("Transform")
 //!     // Register any custom components that you use in your game.
-//!     .sync_component::<Foo>("Foo")
+//!     .sync_component::<Foo>("Foo");
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
