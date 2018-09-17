@@ -20,34 +20,18 @@ extern crate amethyst_editor_sync;
 
 use amethyst_editor_sync::*;
 
-// Create a root `SyncEditorSystem` to coordinate sending all data to the editor.
-let editor_system = SyncEditorSystem::new();
+// Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
+// data to the editor. 
+let editor_bundle = SyncEditorBundle::new()
+    // Register any engine-specific components you want to visualize.
+    .sync_component::<Transform>("Transform")
+    // Register any custom components that you use in your game.
+    .sync_component::<Foo>("Foo")
+    // Register any resources that you want to view in the editor.
+    .sync_resource::<AmbientColor>("AmbientColor");
 
 let game_data = GameDataBuilder::default()
-    // Register the systems for your game first.
-
-    // Insert a barrier to ensure that the editor syncing runs after all
-    // other systems have finished.
-    .with_barrier()
-
-    // Register any engine-specific components you want to visualize.
-    .with(
-        SyncComponentSystem::<Transform>::new("Transform", &editor_system),
-        "editor_transform",
-        &[],
-    )
-
-    // Register any custom components that you use in your game.
-    .with(
-        SyncComponentSystem::<Foo>::new("Foo", &editor_system),
-        "editor_foo",
-        &[],
-    )
-
-    // Register the `SyncEditorSystem` as thread local to ensure it runs last,
-    // after the other systems have had a chance to serialize the state data
-    // for all components/resources.
-    .with_thread_local(editor_system);
+    .with_bundle(editor_bundle)?; 
 
 // Make sure you enable serialization for your custom components and resources!
 #[derive(Serialize, Deserialize)]

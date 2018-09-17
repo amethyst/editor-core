@@ -80,7 +80,7 @@ fn main() -> amethyst::Result<()> {
 
     let assets_dir = format!("{}/examples/assets/", env!("CARGO_MANIFEST_DIR"));
 
-    let editor_system = SyncEditorSystem::new()
+    let editor_sync_bundle = SyncEditorBundle::new()
         .sync_component::<Transform>("Transform")
         .sync_component::<Ball>("Ball")
         .sync_component::<Paddle>("Paddle")
@@ -94,7 +94,7 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new().with_dep(&["ball_system", "paddle_system"]))?
         .with_bundle(AudioBundle::new(|music: &mut Music| music.music.next()))?
         .with_bundle(UiBundle::<String, String>::new())?
-        .with_thread_local(editor_system);
+        .with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(assets_dir, Pong)?
         .with_frame_limit(
             FrameRateLimitStrategy::SleepAndYield(Duration::from_millis(2)),
