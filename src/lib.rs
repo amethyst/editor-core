@@ -11,26 +11,37 @@
 //! ```
 //! extern crate amethyst;
 //! extern crate amethyst_editor_sync;
+//! #[macro_use]
+//! extern crate serde;
 //!
-//! use amethyst::*;
+//! use amethyst::core::Transform;
+//! use amethyst::ecs::*;
+//! use amethyst::prelude::*;
 //! use amethyst_editor_sync::*;
 //!
+//! # fn main() -> Result<(), amethyst::Error> {
 //! // Create a `SyncEditorBundle` which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
 //!     // Register any engine-specific components you want to visualize.
 //!     .sync_component::<Transform>("Transform")
 //!     // Register any custom components that you use in your game.
-//!     .sync_component::<Foo>("Foo")
+//!     .sync_component::<Foo>("Foo");
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
+//! # Ok(())
+//! # }
 //!
 //! // Make sure you enable serialization for your custom components and resources!
 //! #[derive(Serialize, Deserialize)]
 //! struct Foo {
 //!     bar: usize,
 //!     baz: String,
+//! }
+//!
+//! impl Component for Foo {
+//!     type Storage = DenseVecStorage<Self>;
 //! }
 //! ```
 //!
