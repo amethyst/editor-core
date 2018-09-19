@@ -1,5 +1,6 @@
 # amethyst-editor-sync
 
+[![Travis CI](https://travis-ci.org/randomPoison/amethyst-editor-sync.svg?branch=master)](https://travis-ci.org/randomPoison/amethyst-editor-sync)
 [![Join us on Discord](https://img.shields.io/discord/425678876929163284.svg?logo=discord)](https://discord.gg/GnP5Whs)
 [![MIT/Apache](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](COPYING.txt)
 
