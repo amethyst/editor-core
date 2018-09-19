@@ -14,9 +14,9 @@
 //! #[macro_use]
 //! extern crate serde;
 //!
-//! use amethyst::*;
-//! use amethyst::core::*;
+//! use amethyst::core::Transform;
 //! use amethyst::ecs::*;
+//! use amethyst::prelude::*;
 //! use amethyst_editor_sync::*;
 //!
 //! # fn main() -> Result<(), amethyst::Error> {
