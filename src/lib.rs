@@ -100,6 +100,7 @@ struct SerializedResource<'a, T: 'a> {
 enum SerializedData {
     Resource(String),
     Component(String),
+    Message(String),
 }
 
 /// A connection to an editor which allows sending messages via a [`SyncEditorSystem`].
@@ -119,6 +120,21 @@ impl EditorConnection {
     /// Send serialized data to the editor.
     fn send_data(&self, data: SerializedData) {
         self.sender.send(data);
+    }
+
+    /// Send an arbitrary message to the editor.
+    ///
+    /// Note that the message types supported by the editor may differ between implementations.
+    pub fn send_message<T: Serialize>(&self, message_type: &'static str, data: T) {
+        let serialize_data = Message {
+            ty: message_type,
+            data,
+        };
+        if let Ok(serialized) = serde_json::to_string(&serialize_data) {
+            self.send_data(SerializedData::Message(serialized));
+        } else {
+            error!("Failed to serialize message");
+        }
     }
 }
 
@@ -245,10 +261,12 @@ impl<'a> System<'a> for SyncEditorSystem {
     fn run(&mut self, entities: Self::SystemData) {
         let mut components = Vec::new();
         let mut resources = Vec::new();
+        let mut messages = Vec::new();
         while let Some(serialized) = self.receiver.try_recv() {
             match serialized {
                 SerializedData::Component(c) => components.push(c),
                 SerializedData::Resource(r) => resources.push(r),
+                SerializedData::Message(m) => messages.push(m),
             }
         }
 
@@ -265,13 +283,15 @@ impl<'a> System<'a> for SyncEditorSystem {
                 "data": {{
                     "entities": {},
                     "components": [{}],
-                    "resources": [{}]
+                    "resources": [{}],
+                    "messages": [{}]
                 }}
             }}"#,
             entity_string,
             // Insert a comma between components so that it's valid JSON.
             components.join(","),
             resources.join(","),
+            messages.join(","),
         );
 
         trace!("{}", message_string);
