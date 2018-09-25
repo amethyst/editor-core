@@ -74,8 +74,10 @@ use serde::Serialize;
 use serde::export::PhantomData;
 use std::net::UdpSocket;
 
+pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
 
+mod editor_log;
 mod serializable_entity;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -293,8 +295,6 @@ impl<'a> System<'a> for SyncEditorSystem {
             resources.join(","),
             messages.join(","),
         );
-
-        trace!("{}", message_string);
 
         // NOTE: We need to append a page feed character after each message since that's what node-ipc
         // expects to delimit messages.
