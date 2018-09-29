@@ -47,8 +47,6 @@ const AUDIO_BOUNCE: &'static str = "audio/bounce.ogg";
 const AUDIO_SCORE: &'static str = "audio/score.ogg";
 
 fn main() -> amethyst::Result<()> {
-    env_logger::init();
-
     use pong::Pong;
 
     let display_config_path = format!(
@@ -85,6 +83,7 @@ fn main() -> amethyst::Result<()> {
         .sync_component::<Ball>("Ball")
         .sync_component::<Paddle>("Paddle")
         .sync_resource::<ScoreBoard>("ScoreBoard");
+    EditorLogger::new(editor_sync_bundle.get_connection()).start();
     let game_data = GameDataBuilder::default()
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path)?,
