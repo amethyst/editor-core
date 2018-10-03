@@ -1,8 +1,19 @@
 language: rust
+
 cache: cargo
 
-# Install ALSA development libraries before compiling on Linux.
 addons:
   apt:
     packages:
-        - libasound2-dev
+    - libasound2-dev
+
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+
+    # If we're building a tag, then publish to crates.io.
+  - if [ ! -z "$TRAVIS_TAG" ]; then cargo publish --token $CRATES_TOKEN; fi
+
+env:
+  global:
+    secure: iyKADfV6qiM7decIOPzcuImUibXgDrfilmzdVjnAxoCEjmMwbHJ/lJcQ0T28s94C+b7G6Re8YOmWMnNEXJT2bB5aOcySDd1352WWarKSyk2WQ9+GAgAQb8dmLsntxYu95lDTOHH3TN3NhHx/H1uM1Ry+VH3yB9/FBeMpyQE7VjXvBhrTxYxF0lUt+Q3jxxId/x+BRwQnznrdkEDfZZpoDIKX8J9wQYFPSxZ7fk0uOtIq9EL49gUhqfMhJa94oYXNNBk+3mNkHEovyGWbDTzVLb5hHxjKFIp9nNK0a7twrT3J2cPkqd9jFVjR3jDuWRVbVXSqTTFsPIn7W9lWVT6Y0TkLfCKl3nfWBOsE1wFziPKhQqBhPUHUOefBRqhKkLkith7KFmLO3qqAdh/J5lGHL/0j0K18gFI7reL7lvyFNd+pHUhiRR+D0I4tdk3kcX2nVzu2ofZsTLUZyXlbtAgpWJGwd/N63dHKM0rv4XoFh3ecb+CAypT3dW8HXQ6eQSB3bjqmHKBIM857+pALxkjjQMMjaJNa82x84kM4+MjoOkrTnehwjm8TJviISWGyAHL6o8zkRoKYRz1f14Vdb9a2xF0fRQYilDlYsT8AStsD9uS0vanqiRk/DKudFOkYccgvyxRjzsi1mmRbEzc/q4/iHMQAMXc5enpfrITxkN5u3mY=
