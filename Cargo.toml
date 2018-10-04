@@ -6,6 +6,7 @@ description = "Allows an Amethyst game to connect to an editor."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/randomPoison/amethyst-editor-sync"
 documentation = "https://docs.rs/amethyst-editor-sync"
+readme = "README.md"
 
 [dependencies]
 amethyst = "0.8"
