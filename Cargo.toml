@@ -12,7 +12,3 @@ serde_json = "1.0"
 
 [dev-dependencies]
 env_logger = "0.5.13"
-
-[patch.crates-io]
-# Tracking the develop branch of the upstream repo.
-amethyst = { git = "https://github.com/amethyst/amethyst", rev = "7938002" }
