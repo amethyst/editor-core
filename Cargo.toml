@@ -2,6 +2,10 @@
 name = "amethyst-editor-sync"
 version = "0.1.0"
 authors = ["David LeGare <dlegare.1001@gmail.com>"]
+description = "Allows an Amethyst game to connect to an editor."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/randomPoison/amethyst-editor-sync"
+documentation = "https://docs.rs/amethyst-editor-sync"
 
 [dependencies]
 amethyst = "0.8"
