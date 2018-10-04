@@ -359,17 +359,21 @@ impl<T> SyncResourceSystem<T> {
 }
 
 impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
-    type SystemData = ReadExpect<'a, T>;
+    type SystemData = Option<Read<'a, T>>;
 
     fn run(&mut self, resource: Self::SystemData) {
-        let serialize_data = SerializedResource {
-            name: self.name,
-            data: &*resource,
-        };
-        if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-            self.connection.send_data(SerializedData::Resource(serialized));
+        if let Some(resource) = resource {
+            let serialize_data = SerializedResource {
+                name: self.name,
+                data: &*resource,
+            };
+            if let Ok(serialized) = serde_json::to_string(&serialize_data) {
+                self.connection.send_data(SerializedData::Resource(serialized));
+            } else {
+                warn!("Failed to serialize resource of type {}", self.name);
+            }
         } else {
-            error!("Failed to serialize resource of type {}", self.name);
+            warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
         }
     }
 }

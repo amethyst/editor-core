@@ -25,7 +25,9 @@ fn serialize_resource() -> amethyst::Result<()> {
             });
         }
 
-        fn update(&mut self, _: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+        fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+            data.data.update(&data.world);
+
             self.frames += 1;
             if self.frames > 10 {
                 Trans::Quit
@@ -55,7 +57,9 @@ fn missing_resource() -> amethyst::Result<()> {
     };
 
     impl<'a, 'b> State<GameData<'a, 'b>> for TestState {
-        fn update(&mut self, _: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+        fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+            data.data.update(&data.world);
+
             self.frames += 1;
             if self.frames > 10 {
                 Trans::Quit
