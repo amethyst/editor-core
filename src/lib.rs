@@ -247,7 +247,6 @@ impl SyncEditorSystem {
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-        socket.connect("127.0.0.1:8000").expect("Failed to connect to editor");
         Self { receiver, sender, socket }
     }
 
@@ -301,7 +300,8 @@ impl<'a> System<'a> for SyncEditorSystem {
         message_string.push_str("\u{C}");
 
         // Send the JSON message.
-        self.socket.send(message_string.as_bytes()).expect("Failed to send message");
+        self.socket.send_to(message_string.as_bytes(), "127.0.0.1:8000")
+            .expect("Failed to send message");
     }
 }
 
