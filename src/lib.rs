@@ -247,7 +247,6 @@ impl SyncEditorSystem {
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-        socket.connect("127.0.0.1:8000").expect("Failed to connect to editor");
         Self { receiver, sender, socket }
     }
 
@@ -301,7 +300,8 @@ impl<'a> System<'a> for SyncEditorSystem {
         message_string.push_str("\u{C}");
 
         // Send the JSON message.
-        self.socket.send(message_string.as_bytes()).expect("Failed to send message");
+        self.socket.send_to(message_string.as_bytes(), "127.0.0.1:8000")
+            .expect("Failed to send message");
     }
 }
 
@@ -359,17 +359,21 @@ impl<T> SyncResourceSystem<T> {
 }
 
 impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
-    type SystemData = ReadExpect<'a, T>;
+    type SystemData = Option<Read<'a, T>>;
 
     fn run(&mut self, resource: Self::SystemData) {
-        let serialize_data = SerializedResource {
-            name: self.name,
-            data: &*resource,
-        };
-        if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-            self.connection.send_data(SerializedData::Resource(serialized));
+        if let Some(resource) = resource {
+            let serialize_data = SerializedResource {
+                name: self.name,
+                data: &*resource,
+            };
+            if let Ok(serialized) = serde_json::to_string(&serialize_data) {
+                self.connection.send_data(SerializedData::Resource(serialized));
+            } else {
+                warn!("Failed to serialize resource of type {}", self.name);
+            }
         } else {
-            error!("Failed to serialize resource of type {}", self.name);
+            warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
         }
     }
 }
