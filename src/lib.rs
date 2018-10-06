@@ -250,7 +250,6 @@ pub struct SyncEditorSystem {
     socket: UdpSocket,
 
     scratch_string: String,
-    buffer: Vec<u8>,
 }
 
 impl SyncEditorSystem {
@@ -261,9 +260,8 @@ impl SyncEditorSystem {
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-        let buffer = Vec::with_capacity(MAX_PACKET_SIZE);
         let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
-        Self { receiver, sender, socket, scratch_string, buffer }
+        Self { receiver, sender, socket, scratch_string }
     }
 
     /// Retrieve a connection to the editor via this system.
@@ -326,10 +324,11 @@ impl<'a> System<'a> for SyncEditorSystem {
         let mut bytes_sent = 0;
         while bytes_sent < self.scratch_string.len() {
             let bytes_to_send = min(self.scratch_string.len() - bytes_sent, MAX_PACKET_SIZE);
+            let end_offset = bytes_sent + bytes_to_send;
 
             // Send the JSON message.
-            self.socket.send_to(&self.buffer[..], "127.0.0.1:8000")
-                .expect("Failed to send message");
+            let bytes = self.scratch_string[bytes_sent..end_offset].as_bytes();
+            self.socket.send_to(bytes, "127.0.0.1:8000").expect("Failed to send message");
 
             bytes_sent += bytes_to_send;
         }
