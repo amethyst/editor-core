@@ -82,7 +82,7 @@ pub use ::serializable_entity::SerializableEntity;
 mod editor_log;
 mod serializable_entity;
 
-const MAX_PACKET_SIZE: usize = 1024;
+const MAX_PACKET_SIZE: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message<T> {
