@@ -65,6 +65,8 @@ extern crate log;
 extern crate serde;
 extern crate serde_json;
 
+use std::cmp::min;
+use std::fmt::Write;
 use std::collections::HashMap;
 use amethyst::core::bundle::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::*;
@@ -79,6 +81,8 @@ pub use ::serializable_entity::SerializableEntity;
 
 mod editor_log;
 mod serializable_entity;
+
+const MAX_PACKET_SIZE: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message<T> {
@@ -167,6 +171,10 @@ impl SyncEditorBundle<(), ()> {
     }
 }
 
+impl Default for SyncEditorBundle<(), ()> {
+    fn default() -> Self { SyncEditorBundle::new() }
+}
+
 impl<T, U> SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
@@ -220,13 +228,16 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
 
         let sync_system = SyncEditorSystem::from_channel(self.sender, self.receiver);
         let connection = sync_system.get_connection();
+
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
         T::create_sync_systems(dispatcher, &connection, &self.component_names);
         U::create_sync_systems(dispatcher, &connection, &self.resource_names);
+
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
         dispatcher.add(sync_system, "", &[]);
+
         Ok(())
     }
 }
@@ -237,6 +248,8 @@ pub struct SyncEditorSystem {
     receiver: Receiver<SerializedData>,
     sender: Sender<SerializedData>,
     socket: UdpSocket,
+
+    scratch_string: String,
 }
 
 impl SyncEditorSystem {
@@ -247,13 +260,18 @@ impl SyncEditorSystem {
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-        Self { receiver, sender, socket }
+        let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
+        Self { receiver, sender, socket, scratch_string }
     }
 
     /// Retrieve a connection to the editor via this system.
     pub fn get_connection(&self) -> EditorConnection {
         EditorConnection::new(self.sender.clone())
     }
+}
+
+impl Default for SyncEditorSystem {
+    fn default() -> Self { SyncEditorSystem::new() }
 }
 
 impl<'a> System<'a> for SyncEditorSystem {
@@ -275,10 +293,12 @@ impl<'a> System<'a> for SyncEditorSystem {
         for (entity,) in (&*entities,).join() {
             entity_data.push(entity.into());
         }
-        let entity_string = serde_json::to_string(&entity_data).expect("Failed to serialize entities");
+        let entity_string = serde_json::to_string(&entity_data)
+            .expect("Failed to serialize entities");
 
         // Create the message and serialize it to JSON.
-        let mut message_string = format!(
+        write!(
+            self.scratch_string,
             r#"{{
                 "type": "message",
                 "data": {{
@@ -289,19 +309,31 @@ impl<'a> System<'a> for SyncEditorSystem {
                 }}
             }}"#,
             entity_string,
+
             // Insert a comma between components so that it's valid JSON.
             components.join(","),
             resources.join(","),
             messages.join(","),
         );
 
-        // NOTE: We need to append a page feed character after each message since that's what node-ipc
-        // expects to delimit messages.
-        message_string.push_str("\u{C}");
+        // NOTE: We need to append a page feed character after each message since that's
+        // what node-ipc expects to delimit messages.
+        self.scratch_string.push_str("\u{C}");
 
-        // Send the JSON message.
-        self.socket.send_to(message_string.as_bytes(), "127.0.0.1:8000")
-            .expect("Failed to send message");
+        // Send the message, breaking it up into multiple packets if the message is too large.
+        let mut bytes_sent = 0;
+        while bytes_sent < self.scratch_string.len() {
+            let bytes_to_send = min(self.scratch_string.len() - bytes_sent, MAX_PACKET_SIZE);
+            let end_offset = bytes_sent + bytes_to_send;
+
+            // Send the JSON message.
+            let bytes = self.scratch_string[bytes_sent..end_offset].as_bytes();
+            self.socket.send_to(bytes, "127.0.0.1:8000").expect("Failed to send message");
+
+            bytes_sent += bytes_to_send;
+        }
+
+        self.scratch_string.clear();
     }
 }
 

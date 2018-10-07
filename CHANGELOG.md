@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Panic if resource is missing. ([#14])
 * Panic on Linux if no editor is running. ([#15])
+* Panic if sync messages are too large. ([#17])
 
 [#14]: https://github.com/randomPoison/amethyst-editor-sync/pull/14
 [#15]: https://github.com/randomPoison/amethyst-editor-sync/issues/15
+[#17]: https://github.com/randomPoison/amethyst-editor-sync/pull/17
 
 ## [0.1.0] - 2018-10-04
 
