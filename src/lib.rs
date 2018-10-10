@@ -78,7 +78,9 @@ use std::net::UdpSocket;
 
 pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
+pub use type_set::{ComponentSet, ResourceSet, TypeSet};
 
+mod type_set;
 mod editor_log;
 mod serializable_entity;
 
@@ -149,12 +151,11 @@ impl EditorConnection {
 pub struct SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
-{
-    component_names: Vec<&'static str>,
-    resource_names: Vec<&'static str>,
+ {
+    components: TypeSet<T>,
+    resources: TypeSet<U>,
     sender: Sender<SerializedData>,
     receiver: Receiver<SerializedData>,
-    _phantom: PhantomData<(T, U)>,
 }
 
 impl SyncEditorBundle<(), ()> {
@@ -162,17 +163,12 @@ impl SyncEditorBundle<(), ()> {
     pub fn new() -> SyncEditorBundle<(), ()> {
         let (sender, receiver) = crossbeam_channel::unbounded();
         SyncEditorBundle {
-            component_names: Vec::new(),
-            resource_names: Vec::new(),
+            components: TypeSet::new(),
+            resources: TypeSet::new(),
             sender,
             receiver,
-            _phantom: PhantomData,
         }
     }
-}
-
-impl Default for SyncEditorBundle<(), ()> {
-    fn default() -> Self { SyncEditorBundle::new() }
 }
 
 impl<T, U> SyncEditorBundle<T, U> where
@@ -181,33 +177,57 @@ impl<T, U> SyncEditorBundle<T, U> where
 {
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`SyncComponentSystem`] being added.
-    pub fn sync_component<C>(mut self, name: &'static str) -> SyncEditorBundle<(C, T), U>
+    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<(T, (C,)), U>
     where
         C: Component + Serialize+Send,
     {
-        self.component_names.push(name);
         SyncEditorBundle {
-            component_names: self.component_names,
-            resource_names: self.resource_names,
+            components: self.components.with::<C>(name),
+            resources: self.resources,
             sender: self.sender,
             receiver: self.receiver,
-            _phantom: PhantomData,
+        }
+    }
+
+    /// Register a set of components for synchronizing with the editor. This will result
+    /// in a [`SyncComponentSystem`] being added for each component type in the set.
+    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<(T, C), U>
+    where
+        C: ComponentSet,
+    {
+        SyncEditorBundle {
+            components: self.components.with_set(set),
+            resources: self.resources,
+            sender: self.sender,
+            receiver: self.receiver,
         }
     }
 
     /// Register a resource for synchronizing with the editor. This will result in a
     /// [`SyncResourceSystem`] being added.
-    pub fn sync_resource<R>(mut self, name: &'static str) -> SyncEditorBundle<T, (R, U)>
+    pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, (U, (R,))>
     where
         R: Resource + Serialize,
     {
-        self.resource_names.push(name);
         SyncEditorBundle {
-            component_names: self.component_names,
-            resource_names: self.resource_names,
+            components: self.components,
+            resources: self.resources.with::<R>(name),
             sender: self.sender,
             receiver: self.receiver,
-            _phantom: PhantomData,
+        }
+    }
+
+    /// Register a set of resources for synchronizing with the editor. This will result
+    /// in a [`SyncResourceSystem`] being added for each resource type in the set.
+    pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, (U, R)>
+    where
+        R: ResourceSet,
+    {
+        SyncEditorBundle {
+            components: self.components,
+            resources: self.resources.with_set(set),
+            sender: self.sender,
+            receiver: self.receiver,
         }
     }
 
@@ -221,18 +241,14 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
 {
-    fn build(mut self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
-        // In order to match the order of the type list.
-        self.component_names.reverse();
-        self.resource_names.reverse();
-
+    fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
         let sync_system = SyncEditorSystem::from_channel(self.sender, self.receiver);
         let connection = sync_system.get_connection();
 
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
-        T::create_sync_systems(dispatcher, &connection, &self.component_names);
-        U::create_sync_systems(dispatcher, &connection, &self.resource_names);
+        self.components.create_component_sync_systems(dispatcher, &connection);
+        self.resources.create_resource_sync_systems(dispatcher, &connection);
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
@@ -407,44 +423,5 @@ impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
         } else {
             warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
         }
-    }
-}
-
-
-pub trait ComponentSet {
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]);
-}
-
-impl ComponentSet for () {
-    fn create_sync_systems(_: &mut DispatcherBuilder, _: &EditorConnection, _: &[&'static str]) { }
-}
-
-impl<A, B> ComponentSet for (A, B)
-where
-    A: Component + Serialize + Send,
-    B: ComponentSet,
-{
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]) {
-        B::create_sync_systems(dispatcher, connection, &names[1..]);
-        dispatcher.add(SyncComponentSystem::<A>::new(names[0], connection.clone()), "", &[]);
-    }
-}
-
-pub trait ResourceSet {
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]);
-}
-
-impl ResourceSet for () {
-    fn create_sync_systems(_: &mut DispatcherBuilder, _: &EditorConnection, _: &[&'static str]) { }
-}
-
-impl<A, B> ResourceSet for (A, B)
-where
-    A: Resource + Serialize,
-    B: ResourceSet,
-{
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]) {
-        B::create_sync_systems(dispatcher, connection, &names[1..]);
-        dispatcher.add(SyncResourceSystem::<A>::new(names[0], connection.clone()), "", &[]);
     }
 }
