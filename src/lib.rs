@@ -175,6 +175,25 @@ impl<T, U> SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
 {
+    /// Synchronize amethyst types.
+    ///
+    /// Currently only a small set is supported. This will be expanded in the future.
+    pub fn sync_default_types(
+        self
+    ) -> SyncEditorBundle<(T, impl ComponentSet), (U, impl ResourceSet)> {
+        use amethyst::renderer::{AmbientColor, Camera, Light};
+        use amethyst::core::{GlobalTransform, Transform};
+
+        let components = type_set![Light, Camera, Transform, GlobalTransform];
+        let resources = type_set![AmbientColor];
+        SyncEditorBundle {
+            components: self.components.with_set(&components),
+            resources: self.resources.with_set(&resources),
+            sender: self.sender,
+            receiver: self.receiver,
+        }
+    }
+
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`SyncComponentSystem`] being added.
     pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<(T, (C,)), U>
