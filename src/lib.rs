@@ -216,6 +216,15 @@ impl<T, U> SyncEditorBundle<T, U> where
         }
     }
 
+    /// Sets the interval at which the current game state will be sent to the editor.
+    ///
+    /// In order to reduce the amount of work the editor has to do to keep track of the latest
+    /// game state, the rate at which the game state is sent can be reduced. This defaults to
+    /// sending updated data every 200 ms. Setting this to 0 will ensure that data is sent every
+    /// frame.
+    ///
+    /// Note that log output is sent every frame regardless of this interval, the interval only
+    /// controls how often the game's state is sent.
     pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U> {
         self.send_interval = send_interval;
         self
@@ -264,7 +273,7 @@ pub struct SyncEditorSystem {
     socket: UdpSocket,
 
     send_interval: Duration,
-    last_send: Instant,
+    next_send: Instant,
 
     scratch_string: String,
 }
@@ -284,7 +293,7 @@ impl SyncEditorSystem {
             socket,
 
             send_interval,
-            last_send: Instant::now(),
+            next_send: Instant::now() + send_interval,
 
             scratch_string,
         }
@@ -300,9 +309,18 @@ impl<'a> System<'a> for SyncEditorSystem {
     type SystemData = Entities<'a>;
 
     fn run(&mut self, entities: Self::SystemData) {
-        let send_this_frame = Instant::now() > self.last_send + self.send_interval;
-        if send_this_frame {
-            self.last_send += self.send_interval;
+        // Determine if we should send full state data this frame.
+        let now = Instant::now();
+        let send_this_frame = now > self.next_send;
+
+        // Calculate when we should next send full state data.
+        //
+        // NOTE: We iteratively advance the next send time by `send_interval` in order to ensure
+        // we send at a regular cadence. We also ensure that the next send time is after `now`
+        // to avoid running into a death spiral if a frame spike causes frame time to be so long
+        // that the next send time would still be in the past.
+        while self.next_send < now {
+            self.next_send += self.send_interval;
         }
 
         let mut components = Vec::new();
@@ -323,7 +341,9 @@ impl<'a> System<'a> for SyncEditorSystem {
         let entity_string = serde_json::to_string(&entity_data)
             .expect("Failed to serialize entities");
 
-        // Create the message and serialize it to JSON.
+        // Create the message and serialize it to JSON. If we don't need to send the full state
+        // data this frame, we discard entities, components, and resources, and only send the
+        // messages (e.g. log output) from the current frame.
         if send_this_frame {
             write!(
                 self.scratch_string,
