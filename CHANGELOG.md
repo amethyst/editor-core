@@ -12,9 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Panic on Linux if no editor is running. ([#15])
 * Panic if sync messages are too large. ([#17])
 
+### Added
+
+* `SyncEditorBundle::with_interval` to configure how frequently the full state is sent. ([#23])
+
+### Breaking Changes
+
+The state messages sent may now omit some or all of the data fields. Editors should be updated to
+handle this case by not attempting to update their corresponding local data.
+
 [#14]: https://github.com/randomPoison/amethyst-editor-sync/pull/14
 [#15]: https://github.com/randomPoison/amethyst-editor-sync/issues/15
 [#17]: https://github.com/randomPoison/amethyst-editor-sync/pull/17
+[#23]: https://github.com/randomPoison/amethyst-editor-sync/pull/23
 
 ## [0.1.0] - 2018-10-04
 
