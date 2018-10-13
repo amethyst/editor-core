@@ -311,14 +311,17 @@ impl<'a> System<'a> for SyncEditorSystem {
     fn run(&mut self, entities: Self::SystemData) {
         // Determine if we should send full state data this frame.
         let now = Instant::now();
-        let send_this_frame = now > self.next_send;
+        let send_this_frame = now >= self.next_send;
 
         // Calculate when we should next send full state data.
         //
-        // NOTE: We iteratively advance the next send time by `send_interval` in order to ensure
-        // we send at a regular cadence. We also ensure that the next send time is after `now`
-        // to avoid running into a death spiral if a frame spike causes frame time to be so long
-        // that the next send time would still be in the past.
+        // NOTE: We do `next_send += send_interval` instead of `next_send = now + send_interval`
+        // to ensure that state updates happen at a consistent cadence even if there are slight
+        // timing variations in when individual frames are sent.
+        //
+        // NOTE: We repeatedly add `send_interval` to `next_send` to ensure that the next send
+        // time is after `now`. This is to avoid running into a death spiral if a frame spike
+        // causes frame time to be so long that the next send time would still be in the past.
         while self.next_send < now {
             self.next_send += self.send_interval;
         }
