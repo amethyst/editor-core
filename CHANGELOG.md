@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Fixed
 
 * Panic if resource is missing. ([#14])
@@ -37,5 +39,6 @@ handle this case by not attempting to update their corresponding local data.
 [#8]: https://github.com/randomPoison/amethyst-editor-sync/pull/8
 [#11]: https://github.com/randomPoison/amethyst-editor-sync/pull/11
 
-[Unreleased]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/randomPoison/amethyst-editor-sync/compare/a1a710124bd7d2a132e49433596ee48420729e69...v0.1.0
