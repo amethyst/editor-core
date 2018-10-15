@@ -1,6 +1,6 @@
 [package]
 name = "amethyst-editor-sync"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["David LeGare <dlegare.1001@gmail.com>"]
 description = "Allows an Amethyst game to connect to an editor."
 license = "MIT OR Apache-2.0"
