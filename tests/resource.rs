@@ -6,7 +6,7 @@ extern crate serde;
 use amethyst::prelude::*;
 use amethyst_editor_sync::*;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct SimpleResource {
     value: usize,
 }

@@ -133,7 +133,7 @@ impl Component for Paddle {
     type Storage = DenseVecStorage<Self>;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[derive(Default)]
 pub struct ScoreBoard {
     score_left: i32,

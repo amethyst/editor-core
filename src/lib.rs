@@ -2,7 +2,7 @@
 //!
 //! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
 //! In order to visualize your game's state in an editor, you'll also need to create a
-//! [`SyncComponentSystem`] or [`SyncResourceSystem`] for each component and resource that you want
+//! [`SyncComponentSystem`] or [`ReadResourceSystem`] for each component and resource that you want
 //! to visualize. It is possible to automatically create these systems by creating a
 //! [`SyncEditorBundle`] and registering each component and resource on it instead.
 //!
@@ -64,7 +64,10 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
+#[macro_use]
+extern crate shred_derive;
 
+use ::write_resource::WriteResourceSystem;
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
@@ -74,6 +77,7 @@ use amethyst::ecs::*;
 use amethyst::shred::Resource;
 use crossbeam_channel::{Receiver, Sender};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde::export::PhantomData;
 use std::net::UdpSocket;
 
@@ -82,6 +86,7 @@ pub use ::serializable_entity::SerializableEntity;
 
 mod editor_log;
 mod serializable_entity;
+mod write_resource;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
 
@@ -200,10 +205,10 @@ impl<T, U> SyncEditorBundle<T, U> where
     }
 
     /// Register a resource for synchronizing with the editor. This will result in a
-    /// [`SyncResourceSystem`] being added.
+    /// [`ReadResourceSystem`] being added.
     pub fn sync_resource<R>(mut self, name: &'static str) -> SyncEditorBundle<T, (R, U)>
     where
-        R: Resource + Serialize,
+        R: Resource + Serialize + DeserializeOwned,
     {
         self.resource_names.push(name);
         SyncEditorBundle {
@@ -245,7 +250,7 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
         self.component_names.reverse();
         self.resource_names.reverse();
 
-        let sync_system = SyncEditorSystem::from_channel(
+        let mut sync_system = SyncEditorSystem::from_channel(
             self.sender,
             self.receiver,
             self.send_interval,
@@ -255,7 +260,12 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
         T::create_sync_systems(dispatcher, &connection, &self.component_names);
-        U::create_sync_systems(dispatcher, &connection, &self.resource_names);
+        U::create_sync_systems(
+            dispatcher,
+            &connection,
+            &self.resource_names,
+            &mut sync_system.deserializer_map,
+        );
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
@@ -271,6 +281,11 @@ pub struct SyncEditorSystem {
     receiver: Receiver<SerializedData>,
     sender: Sender<SerializedData>,
     socket: UdpSocket,
+
+    // Map containing channels used to send incoming serialized component/resource data from the
+    // editor. Incoming data is sent to specialized systems that deserialize the data and update
+    // the corresponding local data.
+    deserializer_map: HashMap<&'static str, Sender<String>>,
 
     send_interval: Duration,
     next_send: Instant,
@@ -291,6 +306,8 @@ impl SyncEditorSystem {
             receiver,
             sender,
             socket,
+
+            deserializer_map: HashMap::new(),
 
             send_interval,
             next_send: Instant::now() + send_interval,
@@ -439,13 +456,13 @@ impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component+Serialize {
 
 /// A system that serializes a resource of a specific type and sends it to the
 /// [`SyncEditorSystem`], which will sync it with the editor.
-pub struct SyncResourceSystem<T> {
+struct ReadResourceSystem<T> {
     name: &'static str,
     connection: EditorConnection,
     _phantom: PhantomData<T>,
 }
 
-impl<T> SyncResourceSystem<T> {
+impl<T> ReadResourceSystem<T> {
     pub fn new(name: &'static str, connection: EditorConnection) -> Self {
         Self {
             name,
@@ -455,7 +472,7 @@ impl<T> SyncResourceSystem<T> {
     }
 }
 
-impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
+impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource+Serialize {
     type SystemData = Option<Read<'a, T>>;
 
     fn run(&mut self, resource: Self::SystemData) {
@@ -474,7 +491,6 @@ impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
         }
     }
 }
-
 
 pub trait ComponentSet {
     fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]);
@@ -496,20 +512,42 @@ where
 }
 
 pub trait ResourceSet {
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]);
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        connection: &EditorConnection,
+        names: &[&'static str],
+        deserializer_map: &mut HashMap<&'static str, Sender<String>>,
+    );
 }
 
 impl ResourceSet for () {
-    fn create_sync_systems(_: &mut DispatcherBuilder, _: &EditorConnection, _: &[&'static str]) { }
+    fn create_sync_systems(
+        _: &mut DispatcherBuilder,
+        _: &EditorConnection,
+        _: &[&'static str],
+        deserializer_map: &mut HashMap<&'static str, Sender<String>>
+    ) { }
 }
 
 impl<A, B> ResourceSet for (A, B)
 where
-    A: Resource + Serialize,
+    A: Resource + Serialize + DeserializeOwned,
     B: ResourceSet,
 {
-    fn create_sync_systems(dispatcher: &mut DispatcherBuilder, connection: &EditorConnection, names: &[&'static str]) {
-        B::create_sync_systems(dispatcher, connection, &names[1..]);
-        dispatcher.add(SyncResourceSystem::<A>::new(names[0], connection.clone()), "", &[]);
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        connection: &EditorConnection,
+        names: &[&'static str],
+        deserializer_map: &mut HashMap<&'static str, Sender<String>>
+    ) {
+        B::create_sync_systems(dispatcher, connection, &names[1..], deserializer_map);
+
+        // Create a system for serialing the resource data and sending it to the `SyncEditorSystem`.
+        dispatcher.add(ReadResourceSystem::<A>::new(names[0], connection.clone()), "", &[]);
+
+        // Create a deserializer system for the resource.
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        deserializer_map.insert(names[0], sender);
+        dispatcher.add(WriteResourceSystem::<A>::new(receiver), "", &["sync_editor_system"]);
     }
 }
