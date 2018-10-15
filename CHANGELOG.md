@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* `sync_components` and `sync_resources` methods in `SyncEditorBundle` to synchronize all types in a `TypeSet`. `TypeSets` can be created through the `type_set!` macro to reduce the verbosity of synchronizing many types. ([#19])
+* `sync_default_types` method in `SyncEditorBundle` to easily synchronize some commonly used engine types. ([#20])
+
+[#19]: https://github.com/randomPoison/amethyst-editor-sync/issues/19
+[#20]: https://github.com/randomPoison/amethyst-editor-sync/issues/20
+
+### Changed
+
+* `SyncEditorBundle` type format. If the type is explicitly given, it will need to be updated. ([#21])
+
+[#21]: https://github.com/randomPoison/amethyst-editor-sync/pull/21
+
 ### Fixed
 
 * Panic if resource is missing. ([#14])

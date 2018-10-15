@@ -20,13 +20,19 @@
 //! use amethyst_editor_sync::*;
 //!
 //! # fn main() -> Result<(), amethyst::Error> {
-//! // Create a `SyncEditorBundle` which will create all necessary systems to send the components
+//! // Specify every component that you want to view in the editor.
+//! let components = type_set![MyComponent];
+//! // Do the same for your resources.
+//! let resources = type_set![MyResource];
+//!
+//! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
-//!     // Register any engine-specific components you want to visualize.
-//!     .sync_component::<Transform>("Transform")
-//!     // Register any custom components that you use in your game.
-//!     .sync_component::<Foo>("Foo");
+//!     // Register the default types from the engine.
+//!     .sync_default_types()
+//!     // Register the components and resources specified above.
+//!     .sync_components(&components)
+//!     .sync_resources(&resources);
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
@@ -35,25 +41,29 @@
 //!
 //! // Make sure you enable serialization for your custom components and resources!
 //! #[derive(Serialize, Deserialize)]
-//! struct Foo {
-//!     bar: usize,
-//!     baz: String,
+//! struct MyComponent {
+//!     foo: usize,
+//!     bar: String,
 //! }
 //!
-//! impl Component for Foo {
+//! impl Component for MyComponent {
 //!     type Storage = DenseVecStorage<Self>;
+//! }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct MyResource {
+//!     baz: usize,
 //! }
 //! ```
 //!
 //! # Usage
-//!
-//! First, create a [`SyncEditorBundle`] object. You must then register each of the component and
-//! resource types that you want to see in the editor:
-//!
-//! * For each component `T`, register the component with `sync_component::<T>(name)`, specifying
-//!   the name of the component and its concrete type.
-//! * For each resource, register the component with `sync_resource::<T>(name)`, specifying the
-//!   name of the resource and its concrete type.
+//! First, specify the components and resources that you want to see in the editor using the
+//! [`type_set!`] macro.
+//! Then create a [`SyncEditorBundle`] object and register the specified components and resources
+//! with `sync_components` and `sync_resources` respectively. Some of the engine-specific types can
+//! be registered automatically using the `sync_default_types` method. It is also possible to
+//! specify the types individually using `sync_component` and `sync_resource`, which allows changing
+//! the name of the type when viewed in the editor.
 //!
 //! Finally, add the [`SyncEditorBundle`] that you created to the game data.
 
@@ -80,6 +90,7 @@ pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
 pub use type_set::{ComponentSet, ResourceSet, TypeSet};
 
+#[macro_use]
 mod type_set;
 mod editor_log;
 mod serializable_entity;
