@@ -116,9 +116,10 @@ enum SerializedData {
     Message(String),
 }
 
+/// Messages sent from the editor to the game.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
-enum IncomingMessageEnum {
+enum IncomingMessage {
     ResourceUpdate {
         id: String,
         data: serde_json::Value,
@@ -456,12 +457,12 @@ impl<'a> System<'a> for SyncEditorSystem {
             // once NLL is stable.
             {
                 let message_bytes = &self.incoming_buffer[..index];
-                let result: Option<IncomingMessageEnum> = str::from_utf8(message_bytes)
+                let result = str::from_utf8(message_bytes)
                     .ok()
-                    .and_then(|message| serde_json::from_str::<IncomingMessageEnum>(message).ok());
+                    .and_then(|message| serde_json::from_str(message).ok());
                 match result {
                     Some(message) => match message {
-                        IncomingMessageEnum::ResourceUpdate { id, data } => {
+                        IncomingMessage::ResourceUpdate { id, data } => {
                             // TODO: Should we do something if there was no deserialer system for the
                             // specified ID?
                             if let Some(sender) = self.deserializer_map.get(&*id) {
