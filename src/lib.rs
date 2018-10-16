@@ -119,12 +119,6 @@ enum SerializedData {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 enum IncomingMessageEnum {
-    ComponentUpdate {
-        id: String,
-        entity: SerializableEntity,
-        data: serde_json::Value,
-    },
-
     ResourceUpdate {
         id: String,
         data: serde_json::Value,
@@ -457,28 +451,32 @@ impl<'a> System<'a> for SyncEditorSystem {
 
         // Check the incoming buffer to see if any completed messages have been received.
         while let Some(index) = self.incoming_buffer.iter().position(|&byte| byte == 0xC) {
-            let message_bytes = &self.incoming_buffer[..index];
-            let result: Option<IncomingMessageEnum> = str::from_utf8(message_bytes)
-                .ok()
-                .and_then(|message| serde_json::from_str::<IncomingMessageEnum>(message).ok());
-            match result {
-                Some(message) => match message {
-                    IncomingMessageEnum::ComponentUpdate { .. } => unimplemented!("Updating components not yet supported"),
-                    IncomingMessageEnum::ResourceUpdate { id, data } => {
-                        // TODO: Should we do something if there was no deserialer system for the
-                        // specified ID?
-                        if let Some(sender) = self.deserializer_map.get(&*id) {
-                            // TODO: Should we do something to prevent this from blocking?
-                            sender.send(data);
+            // HACK: Manually introduce a scope here so that the compiler can tell when we're done
+            // using borrowing the message bytes from `self.incoming_buffer`. This can be removed
+            // once NLL is stable.
+            {
+                let message_bytes = &self.incoming_buffer[..index];
+                let result: Option<IncomingMessageEnum> = str::from_utf8(message_bytes)
+                    .ok()
+                    .and_then(|message| serde_json::from_str::<IncomingMessageEnum>(message).ok());
+                match result {
+                    Some(message) => match message {
+                        IncomingMessageEnum::ResourceUpdate { id, data } => {
+                            // TODO: Should we do something if there was no deserialer system for the
+                            // specified ID?
+                            if let Some(sender) = self.deserializer_map.get(&*id) {
+                                // TODO: Should we do something to prevent this from blocking?
+                                sender.send(data);
+                            }
                         }
                     }
-                }
 
-                // If the message string is invalid UTF-8 we simply ignore it.
-                None => {}
+                    // If the message string is invalid UTF-8 we simply ignore it.
+                    None => {}
+                }
             }
 
-            // Remove the message bytes from the beginning of the incominb buffer.
+            // Remove the message bytes from the beginning of the incoming buffer.
             self.incoming_buffer.drain(..=index);
         }
     }
