@@ -71,6 +71,7 @@ use ::write_resource::WriteResourceSystem;
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
+use std::str;
 use std::time::*;
 use amethyst::core::bundle::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::*;
@@ -113,6 +114,21 @@ enum SerializedData {
     Resource(String),
     Component(String),
     Message(String),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+enum IncomingMessage {
+    ComponentUpdate {
+        id: String,
+        entity: SerializableEntity,
+        data: serde_json::Value,
+    },
+
+    ResourceUpdate {
+        id: String,
+        data: serde_json::Value,
+    },
 }
 
 /// A connection to an editor which allows sending messages via a [`SyncEditorSystem`].
@@ -269,7 +285,7 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
-        dispatcher.add(sync_system, "", &[]);
+        dispatcher.add(sync_system, "sync_editor_system", &[]);
 
         Ok(())
     }
@@ -285,12 +301,14 @@ pub struct SyncEditorSystem {
     // Map containing channels used to send incoming serialized component/resource data from the
     // editor. Incoming data is sent to specialized systems that deserialize the data and update
     // the corresponding local data.
-    deserializer_map: HashMap<&'static str, Sender<String>>,
+    deserializer_map: HashMap<&'static str, Sender<serde_json::Value>>,
 
     send_interval: Duration,
     next_send: Instant,
 
     scratch_string: String,
+
+    incoming_buffer: Vec<u8>,
 }
 
 impl SyncEditorSystem {
@@ -313,6 +331,7 @@ impl SyncEditorSystem {
             next_send: Instant::now() + send_interval,
 
             scratch_string,
+            incoming_buffer: Vec::with_capacity(1024),
         }
     }
 
@@ -416,6 +435,52 @@ impl<'a> System<'a> for SyncEditorSystem {
         }
 
         self.scratch_string.clear();
+
+        // Read any incoming messages from the editor process.
+        let mut buf = [0; 1024];
+        loop {
+            // TODO: Verify that the incoming address matches the editor process address.
+            let (bytes_read, addr) = match self.socket.recv_from(&mut buf[..]) {
+                Ok(res) => res,
+                Err(error) => {
+                    trace!("Error reading incoming: {:?}", error);
+                    continue;
+                }
+            };
+
+            // Stop reading from the socket once there's no more incoming data.
+            if bytes_read == 0 { break; }
+
+            // Add the bytes from the incoming packet to the buffer.
+            self.incoming_buffer.extend_from_slice(&buf[..bytes_read]);
+        }
+
+        // Check the incoming buffer to see if any completed messages have been received.
+        while let Some(index) = self.incoming_buffer.iter().position(|&byte| byte == 0xC) {
+            let message_bytes = &self.incoming_buffer[..index];
+            let result: Option<IncomingMessage> = str::from_utf8(message_bytes)
+                .ok()
+                .and_then(|message| serde_json::from_str::<IncomingMessage>(message).ok());
+            match result {
+                Some(message) => match message {
+                    IncomingMessage::UpdateComponent { .. } => unimplemented!("Updating components not yet supported"),
+                    IncomingMessage::UpdateResource { id, data } => {
+                        // TODO: Should we do something if there was no deserialer system for the
+                        // specified ID?
+                        if let Some(sender) = self.deserializer_map.get(id) {
+                            // TODO: Should we do something to prevent this from blocking?
+                            sender.send(data);
+                        }
+                    }
+                }
+
+                // If the message string is invalid UTF-8 we simply ignore it.
+                None => {}
+            }
+
+            // Remove the message bytes from the beginning of the incominb buffer.
+            self.incoming_buffer.drain(..=index);
+        }
     }
 }
 
@@ -516,7 +581,7 @@ pub trait ResourceSet {
         dispatcher: &mut DispatcherBuilder,
         connection: &EditorConnection,
         names: &[&'static str],
-        deserializer_map: &mut HashMap<&'static str, Sender<String>>,
+        deserializer_map: &mut HashMap<&'static str, Sender<serde_json::Value>>,
     );
 }
 
@@ -525,7 +590,7 @@ impl ResourceSet for () {
         _: &mut DispatcherBuilder,
         _: &EditorConnection,
         _: &[&'static str],
-        deserializer_map: &mut HashMap<&'static str, Sender<String>>
+        deserializer_map: &mut HashMap<&'static str, Sender<serde_json::Value>>
     ) { }
 }
 
@@ -538,7 +603,7 @@ where
         dispatcher: &mut DispatcherBuilder,
         connection: &EditorConnection,
         names: &[&'static str],
-        deserializer_map: &mut HashMap<&'static str, Sender<String>>
+        deserializer_map: &mut HashMap<&'static str, Sender<serde_json::Value>>
     ) {
         B::create_sync_systems(dispatcher, connection, &names[1..], deserializer_map);
 
