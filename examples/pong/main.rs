@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use amethyst::audio::AudioBundle;
 use amethyst::core::frame_limiter::FrameRateLimitStrategy;
-use amethyst::core::transform::{Transform, TransformBundle};
+use amethyst::core::transform::TransformBundle;
 use amethyst::ecs::prelude::{Component, DenseVecStorage};
 use amethyst::input::InputBundle;
 use amethyst::prelude::*;
@@ -67,10 +67,10 @@ fn main() -> amethyst::Result<()> {
     };
 
     let assets_dir = format!("{}/examples/assets/", env!("CARGO_MANIFEST_DIR"));
+    let components = type_set![Ball, Paddle];
     let editor_sync_bundle = SyncEditorBundle::new()
-        .sync_component::<Transform>("Transform")
-        .sync_component::<Ball>("Ball")
-        .sync_component::<Paddle>("Paddle")
+        .sync_default_types()
+        .sync_components(&components)
         .sync_resource::<ScoreBoard>("ScoreBoard");
     EditorLogger::new(editor_sync_bundle.get_connection()).start();
     let game_data = GameDataBuilder::default()

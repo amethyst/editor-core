@@ -17,19 +17,24 @@ facilitate development of other editor front-ends.
 Here's an example of how to setup an Amethyst game to communicate with the editor:
 
 ```rust
+#[macro_use]
 extern crate amethyst_editor_sync;
 
 use amethyst_editor_sync::*;
 
+// Specify every component that you want to view in the editor.
+let components = type_set![Foo, Bar];
+// Do the same for your resources.
+let resources = type_set![Baz];
+
 // Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
 // data to the editor. 
 let editor_bundle = SyncEditorBundle::new()
-    // Register any engine-specific components you want to visualize.
-    .sync_component::<Transform>("Transform")
-    // Register any custom components that you use in your game.
-    .sync_component::<Foo>("Foo")
-    // Register any resources that you want to view in the editor.
-    .sync_resource::<AmbientColor>("AmbientColor");
+    // Register the default types from the engine.
+    .sync_default_types()
+    // Register the components and resources specified above.
+    .sync_components(&components)
+    .sync_resources(&resources);
 
 let game_data = GameDataBuilder::default()
     .with_bundle(editor_bundle)?; 
