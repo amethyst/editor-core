@@ -201,6 +201,7 @@ impl<T, U> SyncEditorBundle<T, U> where
         let components = type_set![Light, Camera, Transform, GlobalTransform];
         let resources = type_set![AmbientColor];
         SyncEditorBundle {
+            send_interval: self.send_interval,
             components: self.components.with_set(&components),
             resources: self.resources.with_set(&resources),
             sender: self.sender,
@@ -292,7 +293,7 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
 {
-    fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {a
+    fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
         let sync_system = SyncEditorSystem::from_channel(
             self.sender,
             self.receiver,
