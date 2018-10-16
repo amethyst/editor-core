@@ -79,7 +79,7 @@ All contributors are expected to follow the [Rust Code of Conduct].
 
 ## Status
 
-This project is very early in development and should be treated as expirimental.
+This project is very early in development and should be treated as experimental.
 
 Currently it supports communicating with an editor application over UDP. The entire world state
 is serialized as a JSON string and broadcast to the editor every frame. It currently supports

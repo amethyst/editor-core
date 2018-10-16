@@ -78,6 +78,7 @@ extern crate serde_json;
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
+use std::time::*;
 use amethyst::core::bundle::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::*;
 use amethyst::shred::Resource;
@@ -163,6 +164,7 @@ pub struct SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
  {
+    send_interval: Duration,
     components: TypeSet<T>,
     resources: TypeSet<U>,
     sender: Sender<SerializedData>,
@@ -174,6 +176,7 @@ impl SyncEditorBundle<(), ()> {
     pub fn new() -> SyncEditorBundle<(), ()> {
         let (sender, receiver) = crossbeam_channel::unbounded();
         SyncEditorBundle {
+            send_interval: Duration::from_millis(200),
             components: TypeSet::new(),
             resources: TypeSet::new(),
             sender,
@@ -212,6 +215,7 @@ impl<T, U> SyncEditorBundle<T, U> where
         C: Component + Serialize+Send,
     {
         SyncEditorBundle {
+            send_interval: self.send_interval,
             components: self.components.with::<C>(name),
             resources: self.resources,
             sender: self.sender,
@@ -226,6 +230,7 @@ impl<T, U> SyncEditorBundle<T, U> where
         C: ComponentSet,
     {
         SyncEditorBundle {
+            send_interval: self.send_interval,
             components: self.components.with_set(set),
             resources: self.resources,
             sender: self.sender,
@@ -240,6 +245,7 @@ impl<T, U> SyncEditorBundle<T, U> where
         R: Resource + Serialize,
     {
         SyncEditorBundle {
+            send_interval: self.send_interval,
             components: self.components,
             resources: self.resources.with::<R>(name),
             sender: self.sender,
@@ -254,11 +260,26 @@ impl<T, U> SyncEditorBundle<T, U> where
         R: ResourceSet,
     {
         SyncEditorBundle {
+            send_interval: self.send_interval,
             components: self.components,
             resources: self.resources.with_set(set),
             sender: self.sender,
             receiver: self.receiver,
         }
+    }
+
+    /// Sets the interval at which the current game state will be sent to the editor.
+    ///
+    /// In order to reduce the amount of work the editor has to do to keep track of the latest
+    /// game state, the rate at which the game state is sent can be reduced. This defaults to
+    /// sending updated data every 200 ms. Setting this to 0 will ensure that data is sent every
+    /// frame.
+    ///
+    /// Note that log output is sent every frame regardless of this interval, the interval only
+    /// controls how often the game's state is sent.
+    pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U> {
+        self.send_interval = send_interval;
+        self
     }
 
     /// Retrieve a connection to send messages to the editor via the [`SyncEditorSystem`].
@@ -271,8 +292,12 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
 {
-    fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
-        let sync_system = SyncEditorSystem::from_channel(self.sender, self.receiver);
+    fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {a
+        let sync_system = SyncEditorSystem::from_channel(
+            self.sender,
+            self.receiver,
+            self.send_interval,
+        );
         let connection = sync_system.get_connection();
 
         // All systems must have finished editing data before syncing can start.
@@ -295,19 +320,31 @@ pub struct SyncEditorSystem {
     sender: Sender<SerializedData>,
     socket: UdpSocket,
 
+    send_interval: Duration,
+    next_send: Instant,
+
     scratch_string: String,
 }
 
 impl SyncEditorSystem {
-    pub fn new() -> Self {
+    pub fn new(send_interval: Duration) -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        Self::from_channel(sender, receiver)
+        Self::from_channel(sender, receiver, send_interval)
     }
 
-    fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>) -> Self {
+    fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>, send_interval: Duration) -> Self {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
         let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
-        Self { receiver, sender, socket, scratch_string }
+        Self {
+            receiver,
+            sender,
+            socket,
+
+            send_interval,
+            next_send: Instant::now() + send_interval,
+
+            scratch_string,
+        }
     }
 
     /// Retrieve a connection to the editor via this system.
@@ -316,14 +353,27 @@ impl SyncEditorSystem {
     }
 }
 
-impl Default for SyncEditorSystem {
-    fn default() -> Self { SyncEditorSystem::new() }
-}
-
 impl<'a> System<'a> for SyncEditorSystem {
     type SystemData = Entities<'a>;
 
     fn run(&mut self, entities: Self::SystemData) {
+        // Determine if we should send full state data this frame.
+        let now = Instant::now();
+        let send_this_frame = now >= self.next_send;
+
+        // Calculate when we should next send full state data.
+        //
+        // NOTE: We do `next_send += send_interval` instead of `next_send = now + send_interval`
+        // to ensure that state updates happen at a consistent cadence even if there are slight
+        // timing variations in when individual frames are sent.
+        //
+        // NOTE: We repeatedly add `send_interval` to `next_send` to ensure that the next send
+        // time is after `now`. This is to avoid running into a death spiral if a frame spike
+        // causes frame time to be so long that the next send time would still be in the past.
+        while self.next_send < now {
+            self.next_send += self.send_interval;
+        }
+
         let mut components = Vec::new();
         let mut resources = Vec::new();
         let mut messages = Vec::new();
@@ -342,25 +392,42 @@ impl<'a> System<'a> for SyncEditorSystem {
         let entity_string = serde_json::to_string(&entity_data)
             .expect("Failed to serialize entities");
 
-        // Create the message and serialize it to JSON.
-        write!(
-            self.scratch_string,
-            r#"{{
-                "type": "message",
-                "data": {{
-                    "entities": {},
-                    "components": [{}],
-                    "resources": [{}],
-                    "messages": [{}]
-                }}
-            }}"#,
-            entity_string,
+        // Create the message and serialize it to JSON. If we don't need to send the full state
+        // data this frame, we discard entities, components, and resources, and only send the
+        // messages (e.g. log output) from the current frame.
+        if send_this_frame {
+            write!(
+                self.scratch_string,
+                r#"{{
+                    "type": "message",
+                    "data": {{
+                        "entities": {},
+                        "components": [{}],
+                        "resources": [{}],
+                        "messages": [{}]
+                    }}
+                }}"#,
+                entity_string,
 
-            // Insert a comma between components so that it's valid JSON.
-            components.join(","),
-            resources.join(","),
-            messages.join(","),
-        );
+                // Insert a comma between components so that it's valid JSON.
+                components.join(","),
+                resources.join(","),
+                messages.join(","),
+            );
+        } else {
+            write!(
+                self.scratch_string,
+                r#"{{
+                    "type": "message",
+                    "data": {{
+                        "messages": [{}]
+                    }}
+                }}"#,
+
+                // Insert a comma between components so that it's valid JSON.
+                messages.join(","),
+            );
+        }
 
         // NOTE: We need to append a page feed character after each message since that's
         // what node-ipc expects to delimit messages.
