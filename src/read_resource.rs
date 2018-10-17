@@ -27,18 +27,22 @@ impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource + Serialize {
     type SystemData = Option<Read<'a, T>>;
 
     fn run(&mut self, resource: Self::SystemData) {
-        if let Some(resource) = resource {
-            let serialize_data = SerializedResource {
-                name: self.name,
-                data: &*resource,
-            };
-            if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-                self.connection.send_data(SerializedData::Resource(serialized));
-            } else {
-                warn!("Failed to serialize resource of type {}", self.name);
+        let resource = match resource {
+            Some(resource) => resource,
+            None => {
+                warn_once!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
+                return;
             }
+        };
+
+        let serialize_data = SerializedResource {
+            name: self.name,
+            data: &*resource,
+        };
+        if let Ok(serialized) = serde_json::to_string(&serialize_data) {
+            self.connection.send_data(SerializedData::Resource(serialized));
         } else {
-            warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
+            warn!("Failed to serialize resource of type {}", self.name);
         }
     }
 }

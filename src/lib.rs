@@ -72,6 +72,8 @@ extern crate crossbeam_channel;
 #[macro_use]
 extern crate log;
 #[macro_use]
+extern crate log_once;
+#[macro_use]
 extern crate serde;
 extern crate serde_json;
 
@@ -495,14 +497,26 @@ impl<'a> System<'a> for SyncEditorSystem {
             let (bytes_read, addr) = match self.socket.recv_from(&mut buf[..]) {
                 Ok(res) => res,
                 Err(error) => {
-                    // If the read would block, it means that there was no incoming data and we
-                    // should break from the loop. All other errors are legit errors and should
-                    // be handled as such (i.e. ignored).
-                    if error.kind() == io::ErrorKind::WouldBlock {
-                        break;
-                    } else {
-                        warn!("Error reading incoming: {:?}", error);
-                        continue;
+                    match error.kind() {
+                        // If the read would block, it means that there was no incoming data and we
+                        // should break from the loop.
+                        io::ErrorKind::WouldBlock => break,
+
+                        // This is an "error" that happens on Windows if no editor is running to
+                        // receive the state update we just sent. The OS gives a "connection was
+                        // forcibly closed" error when no socket receives the message, but we
+                        // don't care if that happens (in fact, we use UDP specifically so that
+                        // we can broadcast messages without worrying about establishing a
+                        // connection).
+                        io::ErrorKind::ConnectionReset => continue,
+
+                        // All other error kinds should be indicative of a genuine error. For our
+                        // purposes we still want to ignore them, but we'll at least log a warning
+                        // in case it helps debug an issue.
+                        _ => {
+                            warn!("Error reading incoming: {:?}", error);
+                            continue;
+                        }
                     }
                 }
             };
