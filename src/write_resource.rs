@@ -35,9 +35,14 @@ impl<'a, T> System<'a> for WriteResourceSystem<T> where T: Resource + Deserializ
         };
 
         while let Some(incoming) = self.incoming.try_recv() {
+            debug!("Got incoming message for {}: {:?}", self.id, incoming);
+
             let updated = match serde_json::from_value(incoming) {
                 Ok(updated) => updated,
-                Err(_) => continue,
+                Err(error) => {
+                    debug!("Failed to deserialize update for {}: {:?}", self.id, error);
+                    continue;
+                }
             };
 
             *resource = updated;

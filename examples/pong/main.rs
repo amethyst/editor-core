@@ -47,6 +47,8 @@ const AUDIO_SCORE: &'static str = "audio/score.ogg";
 fn main() -> amethyst::Result<()> {
     use pong::Pong;
 
+    amethyst::start_logger(Default::default());
+
     let display_config_path = format!(
         "{}/examples/pong/resources/display.ron",
         env!("CARGO_MANIFEST_DIR")

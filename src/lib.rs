@@ -78,6 +78,7 @@ extern crate serde_json;
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
+use std::io;
 use std::str;
 use std::time::*;
 use amethyst::core::bundle::{Result as BundleResult, SystemBundle};
@@ -199,6 +200,10 @@ impl SyncEditorBundle<(), ()> {
             receiver,
         }
     }
+}
+
+impl Default for SyncEditorBundle<(), ()> {
+    fn default() -> Self { Self::new() }
 }
 
 impl<T, U> SyncEditorBundle<T, U> where
@@ -358,7 +363,14 @@ impl SyncEditorSystem {
     }
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>, send_interval: Duration) -> Self {
+        // Create the socket used for communicating with the editor.
+        //
+        // NOTE: We set the socket to nonblocking so that we don't block if there are no incoming
+        // messages to read. We `expect` on the call to `set_nonblocking` because the game will
+        // hang if the socket is still set to block when the game runs.
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
+        socket.set_nonblocking(true).expect("Failed to make editor socket nonblocking");
+
         let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
         Self {
             receiver,
@@ -483,13 +495,17 @@ impl<'a> System<'a> for SyncEditorSystem {
             let (bytes_read, addr) = match self.socket.recv_from(&mut buf[..]) {
                 Ok(res) => res,
                 Err(error) => {
-                    trace!("Error reading incoming: {:?}", error);
-                    continue;
+                    // If the read would block, it means that there was no incoming data and we
+                    // should break from the loop. All other errors are legit errors and should
+                    // be handled as such (i.e. ignored).
+                    if error.kind() == io::ErrorKind::WouldBlock {
+                        break;
+                    } else {
+                        warn!("Error reading incoming: {:?}", error);
+                        continue;
+                    }
                 }
             };
-
-            // Stop reading from the socket once there's no more incoming data.
-            if bytes_read == 0 { break; }
 
             // Add the bytes from the incoming packet to the buffer.
             self.incoming_buffer.extend_from_slice(&buf[..bytes_read]);
@@ -505,8 +521,8 @@ impl<'a> System<'a> for SyncEditorSystem {
                 let result = str::from_utf8(message_bytes)
                     .ok()
                     .and_then(|message| serde_json::from_str(message).ok());
-                match result {
-                    Some(message) => match message {
+                if let Some(message) = result {
+                    match message {
                         IncomingMessage::ResourceUpdate { id, data } => {
                             // TODO: Should we do something if there was no deserialer system for the
                             // specified ID?
@@ -516,9 +532,6 @@ impl<'a> System<'a> for SyncEditorSystem {
                             }
                         }
                     }
-
-                    // If the message string is invalid UTF-8 we simply ignore it.
-                    None => {}
                 }
             }
 
