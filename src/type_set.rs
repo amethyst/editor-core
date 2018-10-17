@@ -206,7 +206,7 @@ where
         dispatcher.add(
             ReadResourceSystem::<T>::new(names[0], connection.clone()),
             "",
-            &["editor_sync_system"],
+            &[],
         );
         1
     }
@@ -220,7 +220,7 @@ where
         dispatcher.add(
             WriteResourceSystem::<T>::new(names[0], receiver),
             "",
-            &["editor_sync_system"],
+            &[],
         );
         deserializer_map.insert(names[0], sender);
         1
