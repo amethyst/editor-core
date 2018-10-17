@@ -8,13 +8,15 @@ use std::marker::PhantomData;
 /// A system that deserializes incoming updates for a resource and applies them to the local
 /// instance of that resource.
 pub(crate) struct WriteResourceSystem<T> {
+    id: &'static str,
     incoming: Receiver<serde_json::Value>,
     _phantom: PhantomData<T>,
 }
 
 impl<T> WriteResourceSystem<T> {
-    pub(crate) fn new(incoming: Receiver<serde_json::Value>) -> Self {
+    pub(crate) fn new(id: &'static str, incoming: Receiver<serde_json::Value>) -> Self {
         WriteResourceSystem {
+            id,
             incoming,
             _phantom: PhantomData,
         }
@@ -24,7 +26,7 @@ impl<T> WriteResourceSystem<T> {
 impl<'a, T> System<'a> for WriteResourceSystem<T> where T: Resource + DeserializeOwned {
     type SystemData = Option<Write<'a, T>>;
 
-    fn run(&mut self, mut data: Self::SystemData) {
+    fn run(&mut self, data: Self::SystemData) {
         let mut resource = match data {
             Some(res) => res,
             None => return,
