@@ -74,8 +74,6 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate shred_derive;
 
 use std::cmp::min;
 use std::fmt::Write;
@@ -99,6 +97,7 @@ pub use type_set::{ComponentSet, ResourceSet, TypeSet};
 mod type_set;
 mod editor_log;
 mod serializable_entity;
+mod read_resource;
 mod write_resource;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
@@ -560,44 +559,6 @@ impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component+Serialize {
             self.connection.send_data(SerializedData::Component(serialized));
         } else {
             error!("Failed to serialize component of type {}", self.name);
-        }
-    }
-}
-
-/// A system that serializes a resource of a specific type and sends it to the
-/// [`SyncEditorSystem`], which will sync it with the editor.
-struct ReadResourceSystem<T> {
-    name: &'static str,
-    connection: EditorConnection,
-    _phantom: PhantomData<T>,
-}
-
-impl<T> ReadResourceSystem<T> {
-    pub fn new(name: &'static str, connection: EditorConnection) -> Self {
-        Self {
-            name,
-            connection,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource+Serialize {
-    type SystemData = Option<Read<'a, T>>;
-
-    fn run(&mut self, resource: Self::SystemData) {
-        if let Some(resource) = resource {
-            let serialize_data = SerializedResource {
-                name: self.name,
-                data: &*resource,
-            };
-            if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-                self.connection.send_data(SerializedData::Resource(serialized));
-            } else {
-                warn!("Failed to serialize resource of type {}", self.name);
-            }
-        } else {
-            warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
         }
     }
 }

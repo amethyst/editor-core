@@ -5,7 +5,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 
-use {EditorConnection, DeserializerMap, SyncComponentSystem, ReadResourceSystem};
+use {EditorConnection, DeserializerMap, SyncComponentSystem};
+use read_resource::ReadResourceSystem;
 use write_resource::WriteResourceSystem;
 
 /// Create a set of types, where the value is the stringified typename.

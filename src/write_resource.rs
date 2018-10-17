@@ -27,6 +27,8 @@ impl<'a, T> System<'a> for WriteResourceSystem<T> where T: Resource + Deserializ
     type SystemData = Option<Write<'a, T>>;
 
     fn run(&mut self, data: Self::SystemData) {
+        trace!("`WriteResourceSystem::run` for {}", self.id);
+
         let mut resource = match data {
             Some(res) => res,
             None => return,
