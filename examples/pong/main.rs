@@ -73,7 +73,7 @@ fn main() -> amethyst::Result<()> {
     let editor_sync_bundle = SyncEditorBundle::new()
         .sync_default_types()
         .sync_components(&components)
-        .sync_resource::<ScoreBoard>("ScoreBoard");
+        .sync_resource::<ScoreBoard>("Score Board");
     EditorLogger::new(editor_sync_bundle.get_connection()).start();
     let game_data = GameDataBuilder::default()
         .with_bundle(
