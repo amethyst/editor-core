@@ -285,8 +285,15 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
         }
     }
 
-    /// Register a resource for synchronizing with the editor. This will result in a
-    /// [`ReadResourceSystem`] being added.
+    /// Registers a resource type to be synchronized with the editor.
+    ///
+    /// At runtime, the state data for `R` will be sent to the editor for viewing and debugging.
+    /// The editor will also be able to send back changes to the resource's data, which will
+    /// automatically be applied to the local world state.
+    ///
+    /// It is safe to register a resource type for the editor even if it's not also going to be
+    /// registered in the world. A warning will be emitted at runtime notifing that the resource
+    /// won't appear in the editor, however it will not otherwise be treated as an error.
     pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
     where
         R: Resource + Serialize + DeserializeOwned,
@@ -301,8 +308,11 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
         }
     }
 
-    /// Register a set of resources for synchronizing with the editor. This will result
-    /// in a [`ReadResourceSystem`] being added for each resource type in the set.
+    /// Registers a set of resource types to be synchronized with the editor.
+    ///
+    /// At runtime, the state data for the resources in `R` will be sent to the editor for
+    /// viewing and debugging. The editor will also be able to send back changes to the
+    /// resource's data, which will automatically be applied to the local world state.
     pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
     where
         R: ReadResourceSet + WriteResourceSet,
@@ -317,6 +327,15 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
         }
     }
 
+    /// Registers a resource to be sent to the editor as read-only data.
+    ///
+    /// At runtime, the state data for `R` will be sent to the editor for viewing, however
+    /// the editor will not be able to send back changes. If you would like to be able to
+    /// edit `R` in the editor, you can [implement `DeserializeOwned`] for it and then use
+    /// [`sync_resource`] to register it as read-write data.
+    ///
+    /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
+    /// [`sync_resource`]: #method.sync_resource
     pub fn read_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, impl ReadResourceSet, V>
     where
         R: Resource + Serialize,
@@ -331,6 +350,16 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
         }
     }
 
+    /// Registers a set of resources to be sent to the editor as read-only data.
+    ///
+    /// At runtime, the state data for the resources in `R` will be sent to the editor
+    /// for viewing, however the editor will not be able to send back changes. If you
+    /// would like to be able to edit any of the resources in `R` in the editor, you
+    /// can [implement `DeserializeOwned`] for them and then use [`sync_resources`] to
+    /// register them as read-write data.
+    ///
+    /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
+    /// [`sync_resources`]: #method.sync_resources
     pub fn read_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, impl ReadResourceSet, V>
     where
         R: ReadResourceSet,
