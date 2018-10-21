@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `sync_default_types` method in `SyncEditorBundle` to easily synchronize some commonly used
   engine types. ([#20])
 * :tada: Support for editing `Resource` values! :tada: ([#25])
+* `read_resource` and `read_resources` methods in `SyncEditorBundle` to register resources that
+  don't implement `DeserializeOwned`. ([#33])
 
 ### Breaking Changes
 
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#20]: https://github.com/randomPoison/amethyst-editor-sync/issues/20
 [#21]: https://github.com/randomPoison/amethyst-editor-sync/pull/21
 [#25]: https://github.com/randomPoison/amethyst-editor-sync/pull/25
+[#33]: https://github.com/randomPoison/amethyst-editor-sync/pull/33
 
 ## [0.2.0] - 2018-10-14
 
