@@ -476,6 +476,7 @@ impl<'a> System<'a> for SyncEditorSystem {
         self.scratch_string.push_str("\u{C}");
 
         // Send the message, breaking it up into multiple packets if the message is too large.
+        let editor_address = ([127, 0, 0, 1], 8000).into();
         let mut bytes_sent = 0;
         while bytes_sent < self.scratch_string.len() {
             let bytes_to_send = min(self.scratch_string.len() - bytes_sent, MAX_PACKET_SIZE);
@@ -483,7 +484,7 @@ impl<'a> System<'a> for SyncEditorSystem {
 
             // Send the JSON message.
             let bytes = self.scratch_string[bytes_sent..end_offset].as_bytes();
-            self.socket.send_to(bytes, "127.0.0.1:8000").expect("Failed to send message");
+            self.socket.send_to(bytes, editor_address).expect("Failed to send message");
 
             bytes_sent += bytes_to_send;
         }
@@ -520,6 +521,11 @@ impl<'a> System<'a> for SyncEditorSystem {
                     }
                 }
             };
+
+            if addr != editor_address {
+                trace!("Packet received from unknown address {:?}", addr);
+                continue;
+            }
 
             // Add the bytes from the incoming packet to the buffer.
             self.incoming_buffer.extend_from_slice(&buf[..bytes_read]);
