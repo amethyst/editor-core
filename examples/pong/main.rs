@@ -47,6 +47,8 @@ const AUDIO_SCORE: &'static str = "audio/score.ogg";
 fn main() -> amethyst::Result<()> {
     use pong::Pong;
 
+    amethyst::start_logger(Default::default());
+
     let display_config_path = format!(
         "{}/examples/pong/resources/display.ron",
         env!("CARGO_MANIFEST_DIR")
@@ -71,7 +73,7 @@ fn main() -> amethyst::Result<()> {
     let editor_sync_bundle = SyncEditorBundle::new()
         .sync_default_types()
         .sync_components(&components)
-        .sync_resource::<ScoreBoard>("ScoreBoard");
+        .sync_resource::<ScoreBoard>("Score Board");
     EditorLogger::new(editor_sync_bundle.get_connection()).start();
     let game_data = GameDataBuilder::default()
         .with_bundle(
@@ -133,7 +135,7 @@ impl Component for Paddle {
     type Storage = DenseVecStorage<Self>;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[derive(Default)]
 pub struct ScoreBoard {
     score_left: i32,

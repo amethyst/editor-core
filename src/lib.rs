@@ -2,7 +2,7 @@
 //!
 //! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
 //! In order to visualize your game's state in an editor, you'll also need to create a
-//! [`SyncComponentSystem`] or [`SyncResourceSystem`] for each component and resource that you want
+//! [`SyncComponentSystem`] or [`ReadResourceSystem`] for each component and resource that you want
 //! to visualize. It is possible to automatically create these systems by creating a
 //! [`SyncEditorBundle`] and registering each component and resource on it instead.
 //!
@@ -72,18 +72,23 @@ extern crate crossbeam_channel;
 #[macro_use]
 extern crate log;
 #[macro_use]
+extern crate log_once;
+#[macro_use]
 extern crate serde;
 extern crate serde_json;
 
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
+use std::io;
+use std::str;
 use std::time::*;
 use amethyst::core::bundle::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::*;
 use amethyst::shred::Resource;
 use crossbeam_channel::{Receiver, Sender};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde::export::PhantomData;
 use std::net::UdpSocket;
 
@@ -95,8 +100,12 @@ pub use type_set::{ComponentSet, ResourceSet, TypeSet};
 mod type_set;
 mod editor_log;
 mod serializable_entity;
+mod read_resource;
+mod write_resource;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
+
+type DeserializerMap = HashMap<&'static str, Sender<serde_json::Value>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message<T> {
@@ -121,6 +130,16 @@ enum SerializedData {
     Resource(String),
     Component(String),
     Message(String),
+}
+
+/// Messages sent from the editor to the game.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+enum IncomingMessage {
+    ResourceUpdate {
+        id: String,
+        data: serde_json::Value,
+    },
 }
 
 /// A connection to an editor which allows sending messages via a [`SyncEditorSystem`].
@@ -185,6 +204,10 @@ impl SyncEditorBundle<(), ()> {
     }
 }
 
+impl Default for SyncEditorBundle<(), ()> {
+    fn default() -> Self { Self::new() }
+}
+
 impl<T, U> SyncEditorBundle<T, U> where
     T: ComponentSet,
     U: ResourceSet,
@@ -240,10 +263,10 @@ impl<T, U> SyncEditorBundle<T, U> where
     }
 
     /// Register a resource for synchronizing with the editor. This will result in a
-    /// [`SyncResourceSystem`] being added.
+    /// [`ReadResourceSystem`] being added.
     pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, (U, (R,))>
     where
-        R: Resource + Serialize,
+        R: Resource + Serialize + DeserializeOwned,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
@@ -255,7 +278,7 @@ impl<T, U> SyncEditorBundle<T, U> where
     }
 
     /// Register a set of resources for synchronizing with the editor. This will result
-    /// in a [`SyncResourceSystem`] being added for each resource type in the set.
+    /// in a [`ReadResourceSystem`] being added for each resource type in the set.
     pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, (U, R)>
     where
         R: ResourceSet,
@@ -294,7 +317,7 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
     U: ResourceSet,
 {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
-        let sync_system = SyncEditorSystem::from_channel(
+        let mut sync_system = SyncEditorSystem::from_channel(
             self.sender,
             self.receiver,
             self.send_interval,
@@ -304,11 +327,12 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
         self.components.create_component_sync_systems(dispatcher, &connection);
-        self.resources.create_resource_sync_systems(dispatcher, &connection);
+        self.resources.create_resource_read_systems(dispatcher, &connection);
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
-        dispatcher.add(sync_system, "", &[]);
+        self.resources.create_resource_write_systems(dispatcher, &mut sync_system.deserializer_map);
+        dispatcher.add(sync_system, "sync_editor_system", &[]);
 
         Ok(())
     }
@@ -321,10 +345,17 @@ pub struct SyncEditorSystem {
     sender: Sender<SerializedData>,
     socket: UdpSocket,
 
+    // Map containing channels used to send incoming serialized component/resource data from the
+    // editor. Incoming data is sent to specialized systems that deserialize the data and update
+    // the corresponding local data.
+    deserializer_map: HashMap<&'static str, Sender<serde_json::Value>>,
+
     send_interval: Duration,
     next_send: Instant,
 
     scratch_string: String,
+
+    incoming_buffer: Vec<u8>,
 }
 
 impl SyncEditorSystem {
@@ -334,17 +365,27 @@ impl SyncEditorSystem {
     }
 
     fn from_channel(sender: Sender<SerializedData>, receiver: Receiver<SerializedData>, send_interval: Duration) -> Self {
+        // Create the socket used for communicating with the editor.
+        //
+        // NOTE: We set the socket to nonblocking so that we don't block if there are no incoming
+        // messages to read. We `expect` on the call to `set_nonblocking` because the game will
+        // hang if the socket is still set to block when the game runs.
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
+        socket.set_nonblocking(true).expect("Failed to make editor socket nonblocking");
+
         let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
         Self {
             receiver,
             sender,
             socket,
 
+            deserializer_map: HashMap::new(),
+
             send_interval,
             next_send: Instant::now() + send_interval,
 
             scratch_string,
+            incoming_buffer: Vec::with_capacity(1024),
         }
     }
 
@@ -435,6 +476,7 @@ impl<'a> System<'a> for SyncEditorSystem {
         self.scratch_string.push_str("\u{C}");
 
         // Send the message, breaking it up into multiple packets if the message is too large.
+        let editor_address = ([127, 0, 0, 1], 8000).into();
         let mut bytes_sent = 0;
         while bytes_sent < self.scratch_string.len() {
             let bytes_to_send = min(self.scratch_string.len() - bytes_sent, MAX_PACKET_SIZE);
@@ -442,12 +484,80 @@ impl<'a> System<'a> for SyncEditorSystem {
 
             // Send the JSON message.
             let bytes = self.scratch_string[bytes_sent..end_offset].as_bytes();
-            self.socket.send_to(bytes, "127.0.0.1:8000").expect("Failed to send message");
+            self.socket.send_to(bytes, editor_address).expect("Failed to send message");
 
             bytes_sent += bytes_to_send;
         }
 
         self.scratch_string.clear();
+
+        // Read any incoming messages from the editor process.
+        let mut buf = [0; 1024];
+        loop {
+            // TODO: Verify that the incoming address matches the editor process address.
+            let (bytes_read, addr) = match self.socket.recv_from(&mut buf[..]) {
+                Ok(res) => res,
+                Err(error) => {
+                    match error.kind() {
+                        // If the read would block, it means that there was no incoming data and we
+                        // should break from the loop.
+                        io::ErrorKind::WouldBlock => break,
+
+                        // This is an "error" that happens on Windows if no editor is running to
+                        // receive the state update we just sent. The OS gives a "connection was
+                        // forcibly closed" error when no socket receives the message, but we
+                        // don't care if that happens (in fact, we use UDP specifically so that
+                        // we can broadcast messages without worrying about establishing a
+                        // connection).
+                        io::ErrorKind::ConnectionReset => continue,
+
+                        // All other error kinds should be indicative of a genuine error. For our
+                        // purposes we still want to ignore them, but we'll at least log a warning
+                        // in case it helps debug an issue.
+                        _ => {
+                            warn!("Error reading incoming: {:?}", error);
+                            continue;
+                        }
+                    }
+                }
+            };
+
+            if addr != editor_address {
+                trace!("Packet received from unknown address {:?}", addr);
+                continue;
+            }
+
+            // Add the bytes from the incoming packet to the buffer.
+            self.incoming_buffer.extend_from_slice(&buf[..bytes_read]);
+        }
+
+        // Check the incoming buffer to see if any completed messages have been received.
+        while let Some(index) = self.incoming_buffer.iter().position(|&byte| byte == 0xC) {
+            // HACK: Manually introduce a scope here so that the compiler can tell when we're done
+            // using borrowing the message bytes from `self.incoming_buffer`. This can be removed
+            // once NLL is stable.
+            {
+                let message_bytes = &self.incoming_buffer[..index];
+                let result = str::from_utf8(message_bytes)
+                    .ok()
+                    .and_then(|message| serde_json::from_str(message).ok());
+                if let Some(message) = result {
+                    match message {
+                        IncomingMessage::ResourceUpdate { id, data } => {
+                            // TODO: Should we do something if there was no deserialer system for the
+                            // specified ID?
+                            if let Some(sender) = self.deserializer_map.get(&*id) {
+                                // TODO: Should we do something to prevent this from blocking?
+                                sender.send(data);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Remove the message bytes from the beginning of the incoming buffer.
+            self.incoming_buffer.drain(..=index);
+        }
     }
 }
 
@@ -482,44 +592,6 @@ impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component+Serialize {
             self.connection.send_data(SerializedData::Component(serialized));
         } else {
             error!("Failed to serialize component of type {}", self.name);
-        }
-    }
-}
-
-/// A system that serializes a resource of a specific type and sends it to the
-/// [`SyncEditorSystem`], which will sync it with the editor.
-pub struct SyncResourceSystem<T> {
-    name: &'static str,
-    connection: EditorConnection,
-    _phantom: PhantomData<T>,
-}
-
-impl<T> SyncResourceSystem<T> {
-    pub fn new(name: &'static str, connection: EditorConnection) -> Self {
-        Self {
-            name,
-            connection,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> System<'a> for SyncResourceSystem<T> where T: Resource+Serialize {
-    type SystemData = Option<Read<'a, T>>;
-
-    fn run(&mut self, resource: Self::SystemData) {
-        if let Some(resource) = resource {
-            let serialize_data = SerializedResource {
-                name: self.name,
-                data: &*resource,
-            };
-            if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-                self.connection.send_data(SerializedData::Resource(serialized));
-            } else {
-                warn!("Failed to serialize resource of type {}", self.name);
-            }
-        } else {
-            warn!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
         }
     }
 }

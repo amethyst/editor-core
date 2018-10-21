@@ -8,17 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* `sync_components` and `sync_resources` methods in `SyncEditorBundle` to synchronize all types in a `TypeSet`. `TypeSets` can be created through the `type_set!` macro to reduce the verbosity of synchronizing many types. ([#19])
-* `sync_default_types` method in `SyncEditorBundle` to easily synchronize some commonly used engine types. ([#20])
-
+* `sync_components` and `sync_resources` methods in `SyncEditorBundle` to synchronize all types
+  in a `TypeSet`. `TypeSets` can be created through the `type_set!` macro to reduce the verbosity
+  of synchronizing many types. ([#19])
+* `sync_default_types` method in `SyncEditorBundle` to easily synchronize some commonly used
+  engine types. ([#20])
+* :tada: Support for editing `Resource` values! :tada: ([#25])
 
 ### Breaking Changes
 
 * `SyncEditorBundle` type format. If the type is explicitly given, it will need to be updated. ([#21])
+* Resources registered via `SyncEditorBundle::sync_resource` must now be `DeserializeOwned` (as
+  well as `Serialize`). This enables support for applying changes made in the editor. If you have
+  a `Resource` that only implements `Serialize`, register it with `SyncEditorBundle::read_resource`
+  instead. ([#25])
+* `SyncResourceSystem` has been removed. If your code was directly registering the sync systems
+  with your dispatcher, please update to using `SyncEditorBundle` instead. ([#25])
 
 [#19]: https://github.com/randomPoison/amethyst-editor-sync/issues/19
 [#20]: https://github.com/randomPoison/amethyst-editor-sync/issues/20
 [#21]: https://github.com/randomPoison/amethyst-editor-sync/pull/21
+[#25]: https://github.com/randomPoison/amethyst-editor-sync/pull/25
 
 ## [0.2.0] - 2018-10-14
 
