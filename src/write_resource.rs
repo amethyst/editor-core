@@ -5,8 +5,13 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use std::marker::PhantomData;
 
-/// A system that deserializes incoming updates for a resource and applies them to the local
-/// instance of that resource.
+/// A system that deserializes incoming updates for a resource and applies
+/// them to the world state.
+///
+/// An instance of this system is created for each writable resource registered
+/// with [`SyncEditorBundle`] by the player during setup for their game.
+///
+/// [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
 pub(crate) struct WriteResourceSystem<T> {
     id: &'static str,
     incoming: Receiver<serde_json::Value>,

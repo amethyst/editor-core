@@ -6,7 +6,13 @@ use serde_json;
 use std::marker::PhantomData;
 
 /// A system that serializes a resource of a specific type and sends it to the
-/// [`SyncEditorSystem`], which will sync it with the editor.
+/// [`SyncEditorSystem`].
+///
+/// An instance of this system will be created for each resource type the user
+/// registers with the [`SyncEditorBundle`] when initializing their game.
+///
+/// [`SyncEditorSystem`]: ./struct.SyncEditorSystem.html
+/// [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
 pub(crate) struct ReadResourceSystem<T> {
     name: &'static str,
     connection: EditorConnection,
@@ -39,6 +45,7 @@ impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource + Serialize {
             name: self.name,
             data: &*resource,
         };
+
         if let Ok(serialized) = serde_json::to_string(&serialize_data) {
             self.connection.send_data(SerializedData::Resource(serialized));
         } else {
