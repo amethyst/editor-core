@@ -78,7 +78,7 @@ where
 
 impl<T> TypeSet<T>
 where
-    T: ResourceSet,
+    T: ReadResourceSet,
 {
     /// Create a resource-synchronization system for each type in the set.
     pub(crate) fn create_resource_read_systems(
@@ -88,7 +88,12 @@ where
     ) {
         T::create_read_systems(dispatcher, connection, &self.names);
     }
+}
 
+impl<T> TypeSet<T>
+where
+    T: WriteResourceSet,
+{
     pub(crate) fn create_resource_write_systems(
         &self,
         dispatcher: &mut DispatcherBuilder,
@@ -159,7 +164,7 @@ where
 /// A type that groups resource types.
 ///
 /// This is an implementation detail used to construct synchronization systems.
-pub trait ResourceSet {
+pub trait ReadResourceSet {
     /// Create the synchronization systems.
     ///
     /// Their names are passed in the order they are inserted into the type set.
@@ -169,7 +174,9 @@ pub trait ResourceSet {
         connection: &EditorConnection,
         names: &[&'static str],
     ) -> usize;
+}
 
+pub trait WriteResourceSet {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
         deserializer_map: &mut DeserializerMap,
@@ -177,7 +184,7 @@ pub trait ResourceSet {
     ) -> usize;
 }
 
-impl ResourceSet for () {
+impl ReadResourceSet for () {
     fn create_read_systems(
         _: &mut DispatcherBuilder,
         _: &EditorConnection,
@@ -185,7 +192,9 @@ impl ResourceSet for () {
     ) -> usize {
         0
     }
+}
 
+impl WriteResourceSet for () {
     fn create_write_systems(
         _: &mut DispatcherBuilder,
         _: &mut DeserializerMap,
@@ -195,9 +204,9 @@ impl ResourceSet for () {
     }
 }
 
-impl<T> ResourceSet for (T,)
+impl<T> ReadResourceSet for (T,)
 where
-    T: Resource + Serialize + DeserializeOwned,
+    T: Resource + Serialize,
 {
     fn create_read_systems(
         dispatcher: &mut DispatcherBuilder,
@@ -211,7 +220,12 @@ where
         );
         1
     }
+}
 
+impl<T> WriteResourceSet for (T,)
+where
+    T: Resource + DeserializeOwned,
+{
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
         deserializer_map: &mut DeserializerMap,
@@ -228,10 +242,10 @@ where
     }
 }
 
-impl<T, U> ResourceSet for (T, U)
+impl<T, U> ReadResourceSet for (T, U)
 where
-    T: ResourceSet,
-    U: ResourceSet,
+    T: ReadResourceSet,
+    U: ReadResourceSet,
 {
     fn create_read_systems(
         dispatcher: &mut DispatcherBuilder,
@@ -241,7 +255,13 @@ where
         let idx = T::create_read_systems(dispatcher, connection, names);
         idx + U::create_read_systems(dispatcher, connection, &names[idx..])
     }
+}
 
+impl<T, U> WriteResourceSet for (T, U)
+where
+    T: WriteResourceSet,
+    U: WriteResourceSet,
+{
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
         deserializer_map: &mut DeserializerMap,

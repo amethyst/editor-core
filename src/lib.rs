@@ -22,8 +22,13 @@
 //! # fn main() -> Result<(), amethyst::Error> {
 //! // Specify every component that you want to view in the editor.
 //! let components = type_set![MyComponent];
+//!
 //! // Do the same for your resources.
 //! let resources = type_set![MyResource];
+//!
+//! // Read-only resources (i.e. that don't implement `DeserializeOwned`) can still
+//! // be displayed in the editor, but they can't be edited.
+//! let read_only_resources = type_set![ReadOnlyResource];
 //!
 //! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
@@ -32,7 +37,8 @@
 //!     .sync_default_types()
 //!     // Register the components and resources specified above.
 //!     .sync_components(&components)
-//!     .sync_resources(&resources);
+//!     .sync_resources(&resources)
+//!     .read_resources(&read_only_resources);
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
@@ -53,6 +59,11 @@
 //! #[derive(Serialize, Deserialize)]
 //! struct MyResource {
 //!     baz: usize,
+//! }
+//!
+//! #[derive(Serialize)]
+//! struct ReadOnlyResource {
+//!     important_entity: SerializableEntity,
 //! }
 //! ```
 //!
@@ -94,7 +105,7 @@ use std::net::UdpSocket;
 
 pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
-pub use type_set::{ComponentSet, ResourceSet, TypeSet};
+pub use type_set::{ComponentSet, ReadResourceSet, TypeSet, WriteResourceSet};
 
 #[macro_use]
 mod type_set;
@@ -179,54 +190,64 @@ impl EditorConnection {
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
-pub struct SyncEditorBundle<T, U> where
+pub struct SyncEditorBundle<T, U, V> where
     T: ComponentSet,
-    U: ResourceSet,
+    U: ReadResourceSet,
+    V: ReadResourceSet + WriteResourceSet,
  {
     send_interval: Duration,
     components: TypeSet<T>,
-    resources: TypeSet<U>,
+    read_resources: TypeSet<U>,
+    write_resources: TypeSet<V>,
     sender: Sender<SerializedData>,
     receiver: Receiver<SerializedData>,
 }
 
-impl SyncEditorBundle<(), ()> {
+impl SyncEditorBundle<(), (), ()> {
     /// Construct an empty bundle.
-    pub fn new() -> SyncEditorBundle<(), ()> {
+    pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         SyncEditorBundle {
             send_interval: Duration::from_millis(200),
             components: TypeSet::new(),
-            resources: TypeSet::new(),
+            read_resources: TypeSet::new(),
+            write_resources: TypeSet::new(),
             sender,
             receiver,
         }
     }
 }
 
-impl Default for SyncEditorBundle<(), ()> {
+impl Default for SyncEditorBundle<(), (), ()> {
     fn default() -> Self { Self::new() }
 }
 
-impl<T, U> SyncEditorBundle<T, U> where
+impl<T, U, V> SyncEditorBundle<T, U, V> where
     T: ComponentSet,
-    U: ResourceSet,
+    U: ReadResourceSet,
+    V: ReadResourceSet + WriteResourceSet,
 {
     /// Synchronize amethyst types.
     ///
     /// Currently only a small set is supported. This will be expanded in the future.
     pub fn sync_default_types(
         self
-    ) -> SyncEditorBundle<(T, impl ComponentSet), (U, impl ResourceSet)> {
+    ) -> SyncEditorBundle<
+        impl ComponentSet,
+        impl ReadResourceSet,
+        impl ReadResourceSet + WriteResourceSet,
+    > {
         use amethyst::renderer::{AmbientColor, Camera, Light};
         use amethyst::core::{GlobalTransform, Transform};
 
         let components = type_set![Light, Camera, Transform, GlobalTransform];
-        let resources = type_set![AmbientColor];
+        let read_resources = type_set![];
+        let write_resources = type_set![AmbientColor];
         SyncEditorBundle {
             send_interval: self.send_interval,
             components: self.components.with_set(&components),
-            resources: self.resources.with_set(&resources),
+            read_resources: self.read_resources.with_set(&read_resources),
+            write_resources: self.write_resources.with_set(&write_resources),
             sender: self.sender,
             receiver: self.receiver,
         }
@@ -234,14 +255,15 @@ impl<T, U> SyncEditorBundle<T, U> where
 
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`SyncComponentSystem`] being added.
-    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<(T, (C,)), U>
+    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ComponentSet, U, V>
     where
         C: Component + Serialize+Send,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
             components: self.components.with::<C>(name),
-            resources: self.resources,
+            read_resources: self.read_resources,
+            write_resources: self.write_resources,
             sender: self.sender,
             receiver: self.receiver,
         }
@@ -249,44 +271,104 @@ impl<T, U> SyncEditorBundle<T, U> where
 
     /// Register a set of components for synchronizing with the editor. This will result
     /// in a [`SyncComponentSystem`] being added for each component type in the set.
-    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<(T, C), U>
+    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ComponentSet, U, V>
     where
         C: ComponentSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
             components: self.components.with_set(set),
-            resources: self.resources,
+            read_resources: self.read_resources,
+            write_resources: self.write_resources,
             sender: self.sender,
             receiver: self.receiver,
         }
     }
 
-    /// Register a resource for synchronizing with the editor. This will result in a
-    /// [`ReadResourceSystem`] being added.
-    pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, (U, (R,))>
+    /// Registers a resource type to be synchronized with the editor.
+    ///
+    /// At runtime, the state data for `R` will be sent to the editor for viewing and debugging.
+    /// The editor will also be able to send back changes to the resource's data, which will
+    /// automatically be applied to the local world state.
+    ///
+    /// It is safe to register a resource type for the editor even if it's not also going to be
+    /// registered in the world. A warning will be emitted at runtime notifing that the resource
+    /// won't appear in the editor, however it will not otherwise be treated as an error.
+    pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
     where
         R: Resource + Serialize + DeserializeOwned,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
             components: self.components,
-            resources: self.resources.with::<R>(name),
+            read_resources: self.read_resources,
+            write_resources: self.write_resources.with::<R>(name),
             sender: self.sender,
             receiver: self.receiver,
         }
     }
 
-    /// Register a set of resources for synchronizing with the editor. This will result
-    /// in a [`ReadResourceSystem`] being added for each resource type in the set.
-    pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, (U, R)>
+    /// Registers a set of resource types to be synchronized with the editor.
+    ///
+    /// At runtime, the state data for the resources in `R` will be sent to the editor for
+    /// viewing and debugging. The editor will also be able to send back changes to the
+    /// resource's data, which will automatically be applied to the local world state.
+    pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
     where
-        R: ResourceSet,
+        R: ReadResourceSet + WriteResourceSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
             components: self.components,
-            resources: self.resources.with_set(set),
+            read_resources: self.read_resources,
+            write_resources: self.write_resources.with_set(set),
+            sender: self.sender,
+            receiver: self.receiver,
+        }
+    }
+
+    /// Registers a resource to be sent to the editor as read-only data.
+    ///
+    /// At runtime, the state data for `R` will be sent to the editor for viewing, however
+    /// the editor will not be able to send back changes. If you would like to be able to
+    /// edit `R` in the editor, you can [implement `DeserializeOwned`] for it and then use
+    /// [`sync_resource`] to register it as read-write data.
+    ///
+    /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
+    /// [`sync_resource`]: #method.sync_resource
+    pub fn read_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, impl ReadResourceSet, V>
+    where
+        R: Resource + Serialize,
+    {
+        SyncEditorBundle {
+            send_interval: self.send_interval,
+            components: self.components,
+            read_resources: self.read_resources.with::<R>(name),
+            write_resources: self.write_resources,
+            sender: self.sender,
+            receiver: self.receiver,
+        }
+    }
+
+    /// Registers a set of resources to be sent to the editor as read-only data.
+    ///
+    /// At runtime, the state data for the resources in `R` will be sent to the editor
+    /// for viewing, however the editor will not be able to send back changes. If you
+    /// would like to be able to edit any of the resources in `R` in the editor, you
+    /// can [implement `DeserializeOwned`] for them and then use [`sync_resources`] to
+    /// register them as read-write data.
+    ///
+    /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
+    /// [`sync_resources`]: #method.sync_resources
+    pub fn read_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, impl ReadResourceSet, V>
+    where
+        R: ReadResourceSet,
+    {
+        SyncEditorBundle {
+            send_interval: self.send_interval,
+            components: self.components,
+            read_resources: self.read_resources.with_set(set),
+            write_resources: self.write_resources,
             sender: self.sender,
             receiver: self.receiver,
         }
@@ -301,7 +383,7 @@ impl<T, U> SyncEditorBundle<T, U> where
     ///
     /// Note that log output is sent every frame regardless of this interval, the interval only
     /// controls how often the game's state is sent.
-    pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U> {
+    pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U, V> {
         self.send_interval = send_interval;
         self
     }
@@ -312,9 +394,10 @@ impl<T, U> SyncEditorBundle<T, U> where
     }
 }
 
-impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
+impl<'a, 'b, T, U, V> SystemBundle<'a, 'b> for SyncEditorBundle<T, U, V> where
     T: ComponentSet,
-    U: ResourceSet,
+    U: ReadResourceSet,
+    V: ReadResourceSet + WriteResourceSet,
 {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
         let mut sync_system = SyncEditorSystem::from_channel(
@@ -327,11 +410,15 @@ impl<'a, 'b, T, U> SystemBundle<'a, 'b> for SyncEditorBundle<T, U> where
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
         self.components.create_component_sync_systems(dispatcher, &connection);
-        self.resources.create_resource_read_systems(dispatcher, &connection);
+        self.read_resources.create_resource_read_systems(dispatcher, &connection);
+        self.write_resources.create_resource_read_systems(dispatcher, &connection);
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
-        self.resources.create_resource_write_systems(dispatcher, &mut sync_system.deserializer_map);
+        self.write_resources.create_resource_write_systems(
+            dispatcher,
+            &mut sync_system.deserializer_map,
+        );
         dispatcher.add(sync_system, "sync_editor_system", &[]);
 
         Ok(())
