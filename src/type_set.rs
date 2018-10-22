@@ -64,7 +64,7 @@ impl<T> TypeSet<T> {
 
 impl<T> TypeSet<T>
 where
-    T: ComponentSet,
+    T: ReadComponentSet,
 {
     /// Create a component-synchronization system for each type in the set.
     pub(crate) fn create_component_sync_systems(
@@ -106,7 +106,7 @@ where
 /// A type that groups component types.
 ///
 /// This is an implementation detail used to construct synchronization systems.
-pub trait ComponentSet {
+pub trait ReadComponentSet {
     /// Create the synchronization systems.
     ///
     /// Their names are passed in the order they are inserted into the type set.
@@ -118,7 +118,7 @@ pub trait ComponentSet {
     ) -> usize;
 }
 
-impl ComponentSet for () {
+impl ReadComponentSet for () {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
         _: &EditorConnection,
@@ -128,7 +128,7 @@ impl ComponentSet for () {
     }
 }
 
-impl<T> ComponentSet for (T,)
+impl<T> ReadComponentSet for (T,)
 where
     T: Component + Serialize + Send,
 {
@@ -146,10 +146,10 @@ where
     }
 }
 
-impl<T, U> ComponentSet for (T, U)
+impl<T, U> ReadComponentSet for (T, U)
 where
-    T: ComponentSet,
-    U: ComponentSet,
+    T: ReadComponentSet,
+    U: ReadComponentSet,
 {
     fn create_sync_systems(
         dispatcher: &mut DispatcherBuilder,

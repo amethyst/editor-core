@@ -105,7 +105,7 @@ use std::net::UdpSocket;
 
 pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
-pub use type_set::{ComponentSet, ReadResourceSet, TypeSet, WriteResourceSet};
+pub use type_set::{ReadComponentSet, ReadResourceSet, TypeSet, WriteResourceSet};
 
 #[macro_use]
 mod type_set;
@@ -191,7 +191,7 @@ impl EditorConnection {
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
 pub struct SyncEditorBundle<T, U, V> where
-    T: ComponentSet,
+    T: ReadComponentSet,
     U: ReadResourceSet,
     V: ReadResourceSet + WriteResourceSet,
  {
@@ -223,7 +223,7 @@ impl Default for SyncEditorBundle<(), (), ()> {
 }
 
 impl<T, U, V> SyncEditorBundle<T, U, V> where
-    T: ComponentSet,
+    T: ReadComponentSet,
     U: ReadResourceSet,
     V: ReadResourceSet + WriteResourceSet,
 {
@@ -233,7 +233,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     pub fn sync_default_types(
         self
     ) -> SyncEditorBundle<
-        impl ComponentSet,
+        impl ReadComponentSet,
         impl ReadResourceSet,
         impl ReadResourceSet + WriteResourceSet,
     > {
@@ -255,7 +255,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
 
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`SyncComponentSystem`] being added.
-    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ComponentSet, U, V>
+    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ReadComponentSet, U, V>
     where
         C: Component + Serialize+Send,
     {
@@ -271,9 +271,9 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
 
     /// Register a set of components for synchronizing with the editor. This will result
     /// in a [`SyncComponentSystem`] being added for each component type in the set.
-    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ComponentSet, U, V>
+    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ReadComponentSet, U, V>
     where
-        C: ComponentSet,
+        C: ReadComponentSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
@@ -395,7 +395,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
 }
 
 impl<'a, 'b, T, U, V> SystemBundle<'a, 'b> for SyncEditorBundle<T, U, V> where
-    T: ComponentSet,
+    T: ReadComponentSet,
     U: ReadResourceSet,
     V: ReadResourceSet + WriteResourceSet,
 {
