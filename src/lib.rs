@@ -110,9 +110,7 @@ pub use type_set::{ReadComponentSet, ReadResourceSet, TypeSet, WriteResourceSet}
 mod type_set;
 mod editor_log;
 mod serializable_entity;
-mod read_component;
-mod read_resource;
-mod write_resource;
+mod systems;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
 

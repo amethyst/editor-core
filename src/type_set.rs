@@ -6,9 +6,11 @@ use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 
 use {EditorConnection, DeserializerMap};
-use read_component::ReadComponentSystem;
-use read_resource::ReadResourceSystem;
-use write_resource::WriteResourceSystem;
+use systems::{
+    ReadComponentSystem,
+    ReadResourceSystem,
+    WriteResourceSystem,
+};
 
 /// Create a set of types, where the value is the stringified typename.
 #[macro_export]
