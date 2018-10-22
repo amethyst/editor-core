@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 
-use {EditorConnection, DeserializerMap};
+use {EditorConnection, ResourceDeserializerMap};
 use systems::{
     ReadComponentSystem,
     ReadResourceSystem,
@@ -100,7 +100,7 @@ where
     pub(crate) fn create_resource_write_systems(
         &self,
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
     ) {
         T::create_write_systems(dispatcher, deserializer_map, &self.names);
     }
@@ -124,7 +124,7 @@ pub trait ReadComponentSet {
 pub trait WriteComponentSet {
     fn create_sync_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize;
 }
@@ -142,7 +142,7 @@ impl ReadComponentSet for () {
 impl WriteComponentSet for () {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
-        _: &mut DeserializerMap,
+        _: &mut ResourceDeserializerMap,
         _: &[&'static str],
     ) -> usize {
         0
@@ -173,7 +173,7 @@ where
 {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
-        _: &mut DeserializerMap,
+        _: &mut ResourceDeserializerMap,
         _: &[&'static str],
     ) -> usize {
         unimplemented!()
@@ -202,7 +202,7 @@ where
 {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
-        _: &mut DeserializerMap,
+        _: &mut ResourceDeserializerMap,
         _: &[&'static str],
     ) -> usize {
         unimplemented!()
@@ -227,7 +227,7 @@ pub trait ReadResourceSet {
 pub trait WriteResourceSet {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize;
 }
@@ -245,7 +245,7 @@ impl ReadResourceSet for () {
 impl WriteResourceSet for () {
     fn create_write_systems(
         _: &mut DispatcherBuilder,
-        _: &mut DeserializerMap,
+        _: &mut ResourceDeserializerMap,
         _: &[&'static str],
     ) -> usize {
         0
@@ -276,7 +276,7 @@ where
 {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize {
         let (sender, receiver) = crossbeam_channel::unbounded();
@@ -312,7 +312,7 @@ where
 {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize {
         let idx = T::create_write_systems(dispatcher, deserializer_map, names);

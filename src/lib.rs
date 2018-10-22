@@ -87,6 +87,8 @@ extern crate log_once;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
+#[macro_use]
+extern crate shred_derive;
 
 use std::cmp::min;
 use std::fmt::Write;
@@ -114,7 +116,9 @@ mod systems;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
 
-type DeserializerMap = HashMap<&'static str, Sender<serde_json::Value>>;
+type SenderMap<T> = HashMap<&'static str, Sender<T>>;
+type ComponentDeserializerMap = SenderMap<IncomingComponent>;
+type ResourceDeserializerMap = SenderMap<serde_json::Value>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message<T> {
@@ -149,6 +153,12 @@ enum IncomingMessage {
         id: String,
         data: serde_json::Value,
     },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct IncomingComponent {
+    entity: SerializableEntity,
+    data: serde_json::Value,
 }
 
 /// A connection to an editor which allows sending messages via a [`SyncEditorSystem`].
