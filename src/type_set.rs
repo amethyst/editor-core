@@ -118,10 +118,28 @@ pub trait ReadComponentSet {
     ) -> usize;
 }
 
+pub trait WriteComponentSet {
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        deserializer_map: &mut DeserializerMap,
+        names: &[&'static str],
+    ) -> usize;
+}
+
 impl ReadComponentSet for () {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
         _: &EditorConnection,
+        _: &[&'static str],
+    ) -> usize {
+        0
+    }
+}
+
+impl WriteComponentSet for () {
+    fn create_sync_systems(
+        _: &mut DispatcherBuilder,
+        _: &mut DeserializerMap,
         _: &[&'static str],
     ) -> usize {
         0
@@ -146,6 +164,19 @@ where
     }
 }
 
+impl<T> WriteComponentSet for (T,)
+where
+    T: Component + DeserializeOwned + Send,
+{
+    fn create_sync_systems(
+        _: &mut DispatcherBuilder,
+        _: &mut DeserializerMap,
+        _: &[&'static str],
+    ) -> usize {
+        unimplemented!()
+    }
+}
+
 impl<T, U> ReadComponentSet for (T, U)
 where
     T: ReadComponentSet,
@@ -158,6 +189,20 @@ where
     ) -> usize {
         let idx = T::create_sync_systems(dispatcher, connection, names);
         idx + U::create_sync_systems(dispatcher, connection, &names[idx..])
+    }
+}
+
+impl<T, U> WriteComponentSet for (T, U)
+where
+    T: WriteComponentSet,
+    U: WriteComponentSet,
+{
+    fn create_sync_systems(
+        _: &mut DispatcherBuilder,
+        _: &mut DeserializerMap,
+        _: &[&'static str],
+    ) -> usize {
+        unimplemented!()
     }
 }
 
