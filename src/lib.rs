@@ -2,7 +2,7 @@
 //!
 //! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
 //! In order to visualize your game's state in an editor, you'll also need to create a
-//! [`SyncComponentSystem`] or [`ReadResourceSystem`] for each component and resource that you want
+//! [`ReadComponentSystem`] or [`ReadResourceSystem`] for each component and resource that you want
 //! to visualize. It is possible to automatically create these systems by creating a
 //! [`SyncEditorBundle`] and registering each component and resource on it instead.
 //!
@@ -100,7 +100,6 @@ use amethyst::shred::Resource;
 use crossbeam_channel::{Receiver, Sender};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde::export::PhantomData;
 use std::net::UdpSocket;
 
 pub use editor_log::EditorLogger;
@@ -111,6 +110,7 @@ pub use type_set::{ReadComponentSet, ReadResourceSet, TypeSet, WriteResourceSet}
 mod type_set;
 mod editor_log;
 mod serializable_entity;
+mod read_component;
 mod read_resource;
 mod write_resource;
 
@@ -254,7 +254,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     }
 
     /// Register a component for synchronizing with the editor. This will result in a
-    /// [`SyncComponentSystem`] being added.
+    /// [`ReadComponentSystem`] being added.
     pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ReadComponentSet, U, V>
     where
         C: Component + Serialize+Send,
@@ -270,7 +270,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     }
 
     /// Register a set of components for synchronizing with the editor. This will result
-    /// in a [`SyncComponentSystem`] being added for each component type in the set.
+    /// in a [`ReadComponentSystem`] being added for each component type in the set.
     pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ReadComponentSet, U, V>
     where
         C: ReadComponentSet,
@@ -644,41 +644,6 @@ impl<'a> System<'a> for SyncEditorSystem {
 
             // Remove the message bytes from the beginning of the incoming buffer.
             self.incoming_buffer.drain(..=index);
-        }
-    }
-}
-
-/// A system that serializes all components of a specific type and sends them to the
-/// [`SyncEditorSystem`], which will sync them with the editor.
-pub struct SyncComponentSystem<T> {
-    name: &'static str,
-    connection: EditorConnection,
-    _phantom: PhantomData<T>,
-}
-
-impl<T> SyncComponentSystem<T> {
-    pub fn new(name: &'static str, connection: EditorConnection) -> Self {
-        Self {
-            name,
-            connection,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> System<'a> for SyncComponentSystem<T> where T: Component+Serialize {
-    type SystemData = (Entities<'a>, ReadStorage<'a, T>);
-
-    fn run(&mut self, (entities, components): Self::SystemData) {
-        let data = (&*entities, &components)
-            .join()
-            .map(|(e, c)| (e.id(), c))
-            .collect();
-        let serialize_data = SerializedComponent { name: self.name, data };
-        if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-            self.connection.send_data(SerializedData::Component(serialized));
-        } else {
-            error!("Failed to serialize component of type {}", self.name);
         }
     }
 }

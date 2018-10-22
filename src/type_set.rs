@@ -5,7 +5,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 
-use {EditorConnection, DeserializerMap, SyncComponentSystem};
+use {EditorConnection, DeserializerMap};
+use read_component::ReadComponentSystem;
 use read_resource::ReadResourceSystem;
 use write_resource::WriteResourceSystem;
 
@@ -156,7 +157,7 @@ where
         names: &[&'static str],
     ) -> usize {
         dispatcher.add(
-            SyncComponentSystem::<T>::new(names[0], connection.clone()),
+            ReadComponentSystem::<T>::new(names[0], connection.clone()),
             "",
             &[],
         );
