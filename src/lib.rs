@@ -90,6 +90,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate shred_derive;
 
+use ::serializable_entity::DeserializableEntity;
 use std::cmp::min;
 use std::fmt::Write;
 use std::collections::HashMap;
@@ -149,15 +150,21 @@ enum SerializedData {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 enum IncomingMessage {
+    ComponentUpdate {
+        id: String,
+        entity: DeserializableEntity,
+        data: serde_json::Value,
+    },
+
     ResourceUpdate {
         id: String,
         data: serde_json::Value,
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 struct IncomingComponent {
-    entity: SerializableEntity,
+    entity: Entity,
     data: serde_json::Value,
 }
 
@@ -638,6 +645,12 @@ impl<'a> System<'a> for SyncEditorSystem {
                     .and_then(|message| serde_json::from_str(message).ok());
                 if let Some(message) = result {
                     match message {
+                        IncomingMessage::ComponentUpdate { id, entity, data } => {
+                            // TODO: Get the actual `Entity` from `Entities` and then send it to
+                            // the deserializer system.
+                            unimplemented!()
+                        },
+
                         IncomingMessage::ResourceUpdate { id, data } => {
                             // TODO: Should we do something if there was no deserialer system for the
                             // specified ID?

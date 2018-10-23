@@ -71,3 +71,11 @@ impl From<SerializableEntity> for Entity {
         from.0
     }
 }
+
+/// Secret struct for easy serialization/deserialization of `Entity` within
+/// `SerializableEntity`.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub(crate) struct DeserializableEntity {
+    id: u32,
+    generation: i32,
+}

@@ -24,7 +24,7 @@ impl<T> WriteComponentSystem<T> {
 impl<'a, T> System<'a> for WriteComponentSystem<T> where T: Component + DeserializeOwned + Send + Sync {
     type SystemData = WriteStorage<'a, T>;
 
-    fn run(&mut self, storage: Self::SystemData) {
+    fn run(&mut self, mut storage: Self::SystemData) {
         trace!("`WriteComponentSystem::run` for {}", self.id);
 
         while let Some(incoming) = self.incoming.try_recv() {
