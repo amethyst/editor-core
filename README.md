@@ -17,33 +17,45 @@ facilitate development of other editor front-ends.
 Here's an example of how to setup an Amethyst game to communicate with the editor:
 
 ```rust
+extern crate amethyst;
 #[macro_use]
 extern crate amethyst_editor_sync;
+#[macro_use]
+extern crate serde;
 
+use amethyst::prelude::*;
+use amethyst::ecs::prelude::*;
 use amethyst_editor_sync::*;
 
-// Specify every component that you want to view in the editor.
-let components = type_set![Foo, Bar];
-// Do the same for your resources.
-let resources = type_set![Baz];
+fn main() -> Result<(), amethyst::Error> {
+    // Specify every component that you want to view in the editor.
+    let components = type_set![Foo /*, ...*/];
+    // Do the same for any resources.
+    let resources = type_set![];
 
-// Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
-// data to the editor. 
-let editor_bundle = SyncEditorBundle::new()
-    // Register the default types from the engine.
-    .sync_default_types()
-    // Register the components and resources specified above.
-    .sync_components(&components)
-    .sync_resources(&resources);
+    // Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
+    // data to the editor. 
+    let editor_bundle = SyncEditorBundle::new()
+        // Register the default types from the engine.
+        .sync_default_types()
+        // Register the components and resources specified above.
+        .sync_components(&components)
+        .sync_resources(&resources);
 
-let game_data = GameDataBuilder::default()
-    .with_bundle(editor_bundle)?; 
+    let _game_data = GameDataBuilder::default()
+        .with_bundle(editor_bundle)?;
+    Ok(())
+}
 
 // Make sure you enable serialization for your custom components and resources!
 #[derive(Serialize, Deserialize)]
 struct Foo {
     bar: usize,
     baz: String,
+}
+
+impl Component for Foo {
+    type Storage = DenseVecStorage<Self>;
 }
 ```
 
