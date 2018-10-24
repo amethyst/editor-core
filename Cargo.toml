@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/randomPoison/amethyst-editor-sync"
 documentation = "https://docs.rs/amethyst-editor-sync"
 readme = "README.md"
+build = "build.rs"
 
 [dependencies]
 amethyst = "0.8"
@@ -19,3 +20,7 @@ shred-derive = "0.5"
 
 [dev-dependencies]
 env_logger = "0.5.13"
+skeptic = "0.13"
+
+[build-dependencies]
+skeptic = "0.13"
