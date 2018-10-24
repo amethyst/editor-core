@@ -69,7 +69,7 @@ increase the robustness of the editor: If the game crashes, it cannot crash or c
 
 You'll need a stable version of [Rust] installed, which can be done via [rustup]. Install the
 latest stable toolchain (if you don't already have a stable toolchain installed) and then clone
-the repository. You can run the pong example for testing by running `cargo run --examples pong`.
+the repository. You can run the pong example for testing by running `cargo run --example pong`.
 If you need to test functionality against an editor, you can use [the Electron editor][editor].
 
 For any feature requests, please open an issue in the GitHub issue tracker. Pull requests are also
