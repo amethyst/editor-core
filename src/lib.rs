@@ -87,8 +87,6 @@ extern crate log_once;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate shred_derive;
 
 use ::serializable_entity::DeserializableEntity;
 use std::cmp::min;
@@ -450,7 +448,8 @@ pub struct SyncEditorSystem {
     // Map containing channels used to send incoming serialized component/resource data from the
     // editor. Incoming data is sent to specialized systems that deserialize the data and update
     // the corresponding local data.
-    deserializer_map: HashMap<&'static str, Sender<serde_json::Value>>,
+    deserializer_map: ResourceDeserializerMap,
+    component_deserializer_map: ComponentDeserializerMap,
 
     send_interval: Duration,
     next_send: Instant,
@@ -482,6 +481,7 @@ impl SyncEditorSystem {
             socket,
 
             deserializer_map: HashMap::new(),
+            component_deserializer_map: ComponentDeserializerMap::new(),
 
             send_interval,
             next_send: Instant::now() + send_interval,
@@ -645,10 +645,20 @@ impl<'a> System<'a> for SyncEditorSystem {
                     .and_then(|message| serde_json::from_str(message).ok());
                 if let Some(message) = result {
                     match message {
-                        IncomingMessage::ComponentUpdate { id, entity, data } => {
-                            // TODO: Get the actual `Entity` from `Entities` and then send it to
-                            // the deserializer system.
-                            unimplemented!()
+                        IncomingMessage::ComponentUpdate { id, entity: entity_data, data } => {
+                            let entity = entities.entity(entity_data.id);
+
+                            // Skip the update if the entity is no longer valid.
+                            if entity.gen().id() != entity_data.generation {
+                                continue;
+                            }
+
+                            if let Some(sender) = self.component_deserializer_map.get(&*id) {
+                                sender.send(IncomingComponent {
+                                    entity,
+                                    data,
+                                });
+                            }
                         },
 
                         IncomingMessage::ResourceUpdate { id, data } => {

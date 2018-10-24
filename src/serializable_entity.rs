@@ -36,10 +36,10 @@ impl SerializableEntity {
     }
 
     /// Gets the ID of the entity.
-    pub fn id(&self) -> u32 { self.0.id() }
+    pub fn id(self) -> u32 { self.0.id() }
 
     /// Gets the generation of the entity.
-    pub fn gen(&self) -> Generation { self.0.gen() }
+    pub fn gen(self) -> Generation { self.0.gen() }
 }
 
 impl Serialize for SerializableEntity {
@@ -76,6 +76,6 @@ impl From<SerializableEntity> for Entity {
 /// `SerializableEntity`.
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub(crate) struct DeserializableEntity {
-    id: u32,
-    generation: i32,
+    pub(crate) id: u32,
+    pub(crate) generation: i32,
 }
