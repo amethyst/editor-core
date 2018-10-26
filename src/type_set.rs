@@ -5,9 +5,13 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 
-use {EditorConnection, DeserializerMap, SyncComponentSystem};
-use read_resource::ReadResourceSystem;
-use write_resource::WriteResourceSystem;
+use crate::{EditorConnection, ComponentDeserializerMap, ResourceDeserializerMap};
+use crate::systems::{
+    ReadComponentSystem,
+    ReadResourceSystem,
+    WriteComponentSystem,
+    WriteResourceSystem,
+};
 
 /// Create a set of types, where the value is the stringified typename.
 #[macro_export]
@@ -26,6 +30,7 @@ macro_rules! type_set {
 /// A set of types with associated data.
 ///
 /// `T` is essentially a tree built of 0-2 tuples.
+#[derive(Default)]
 pub struct TypeSet<T> {
     // Stored in left to right traversal order of the type tree.
     names: Vec<&'static str>,
@@ -34,12 +39,7 @@ pub struct TypeSet<T> {
 
 impl TypeSet<()> {
     /// Construct an empty set.
-    pub fn new() -> Self {
-        TypeSet {
-            names: Vec::new(),
-            _phantom: PhantomData,
-        }
-    }
+    pub fn new() -> Self { Default::default() }
 }
 
 impl<T> TypeSet<T> {
@@ -64,15 +64,29 @@ impl<T> TypeSet<T> {
 
 impl<T> TypeSet<T>
 where
-    T: ComponentSet,
+    T: ReadComponentSet,
 {
     /// Create a component-synchronization system for each type in the set.
-    pub(crate) fn create_component_sync_systems(
+    pub(crate) fn create_component_read_systems(
         &self,
         dispatcher: &mut DispatcherBuilder,
         connection: &EditorConnection,
     ) {
         T::create_sync_systems(dispatcher, connection, &self.names);
+    }
+}
+
+impl<T> TypeSet<T>
+where
+    T: WriteComponentSet,
+{
+    /// Create a component-synchronization system for each type in the set.
+    pub(crate) fn create_component_write_systems(
+        &self,
+        dispatcher: &mut DispatcherBuilder,
+        deserializer_map: &mut ComponentDeserializerMap,
+    ) {
+        T::create_sync_systems(dispatcher, deserializer_map, &self.names);
     }
 }
 
@@ -97,7 +111,7 @@ where
     pub(crate) fn create_resource_write_systems(
         &self,
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
     ) {
         T::create_write_systems(dispatcher, deserializer_map, &self.names);
     }
@@ -106,7 +120,7 @@ where
 /// A type that groups component types.
 ///
 /// This is an implementation detail used to construct synchronization systems.
-pub trait ComponentSet {
+pub trait ReadComponentSet {
     /// Create the synchronization systems.
     ///
     /// Their names are passed in the order they are inserted into the type set.
@@ -118,7 +132,15 @@ pub trait ComponentSet {
     ) -> usize;
 }
 
-impl ComponentSet for () {
+pub trait WriteComponentSet {
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        deserializer_map: &mut ComponentDeserializerMap,
+        names: &[&'static str],
+    ) -> usize;
+}
+
+impl ReadComponentSet for () {
     fn create_sync_systems(
         _: &mut DispatcherBuilder,
         _: &EditorConnection,
@@ -128,7 +150,17 @@ impl ComponentSet for () {
     }
 }
 
-impl<T> ComponentSet for (T,)
+impl WriteComponentSet for () {
+    fn create_sync_systems(
+        _: &mut DispatcherBuilder,
+        _: &mut ComponentDeserializerMap,
+        _: &[&'static str],
+    ) -> usize {
+        0
+    }
+}
+
+impl<T> ReadComponentSet for (T,)
 where
     T: Component + Serialize + Send,
 {
@@ -138,7 +170,7 @@ where
         names: &[&'static str],
     ) -> usize {
         dispatcher.add(
-            SyncComponentSystem::<T>::new(names[0], connection.clone()),
+            ReadComponentSystem::<T>::new(names[0], connection.clone()),
             "",
             &[],
         );
@@ -146,10 +178,30 @@ where
     }
 }
 
-impl<T, U> ComponentSet for (T, U)
+impl<T> WriteComponentSet for (T,)
 where
-    T: ComponentSet,
-    U: ComponentSet,
+    T: Component + DeserializeOwned + Send + Sync,
+{
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        deserializer_map: &mut ComponentDeserializerMap,
+        names: &[&'static str],
+    ) -> usize {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        dispatcher.add(
+            WriteComponentSystem::<T>::new(names[0], receiver),
+            "",
+            &[],
+        );
+        deserializer_map.insert(names[0], sender);
+        1
+    }
+}
+
+impl<T, U> ReadComponentSet for (T, U)
+where
+    T: ReadComponentSet,
+    U: ReadComponentSet,
 {
     fn create_sync_systems(
         dispatcher: &mut DispatcherBuilder,
@@ -158,6 +210,21 @@ where
     ) -> usize {
         let idx = T::create_sync_systems(dispatcher, connection, names);
         idx + U::create_sync_systems(dispatcher, connection, &names[idx..])
+    }
+}
+
+impl<T, U> WriteComponentSet for (T, U)
+where
+    T: WriteComponentSet,
+    U: WriteComponentSet,
+{
+    fn create_sync_systems(
+        dispatcher: &mut DispatcherBuilder,
+        deserializer_map: &mut ComponentDeserializerMap,
+        names: &[&'static str],
+    ) -> usize {
+        let idx = T::create_sync_systems(dispatcher, deserializer_map, names);
+        idx + U::create_sync_systems(dispatcher, deserializer_map, &names[idx..])
     }
 }
 
@@ -179,7 +246,7 @@ pub trait ReadResourceSet {
 pub trait WriteResourceSet {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize;
 }
@@ -197,7 +264,7 @@ impl ReadResourceSet for () {
 impl WriteResourceSet for () {
     fn create_write_systems(
         _: &mut DispatcherBuilder,
-        _: &mut DeserializerMap,
+        _: &mut ResourceDeserializerMap,
         _: &[&'static str],
     ) -> usize {
         0
@@ -228,7 +295,7 @@ where
 {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize {
         let (sender, receiver) = crossbeam_channel::unbounded();
@@ -264,7 +331,7 @@ where
 {
     fn create_write_systems(
         dispatcher: &mut DispatcherBuilder,
-        deserializer_map: &mut DeserializerMap,
+        deserializer_map: &mut ResourceDeserializerMap,
         names: &[&'static str],
     ) -> usize {
         let idx = T::create_write_systems(dispatcher, deserializer_map, names);

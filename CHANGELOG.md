@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * :tada: Support for editing `Resource` values! :tada: ([#25])
 * `read_resource` and `read_resources` methods in `SyncEditorBundle` to register resources that
   don't implement `DeserializeOwned`. ([#33])
+* `read_component` and `read_components` methods in `SyncEditorBundle` to register components that
+  don't implement `DeserializeOwned` ([#37])
 
 ### Breaking Changes
 
@@ -24,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   well as `Serialize`). This enables support for applying changes made in the editor. If you have
   a `Resource` that only implements `Serialize`, register it with `SyncEditorBundle::read_resource`
   instead. ([#25])
+* Components registered via `SyncEditorBundle::sync_component` must now be `DeserializeOwned` (as
+  well as `Serialize`). ([#37])
 * `SyncResourceSystem` has been removed. If your code was directly registering the sync systems
   with your dispatcher, please update to using `SyncEditorBundle` instead. ([#25])
 
@@ -32,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#21]: https://github.com/randomPoison/amethyst-editor-sync/pull/21
 [#25]: https://github.com/randomPoison/amethyst-editor-sync/pull/25
 [#33]: https://github.com/randomPoison/amethyst-editor-sync/pull/33
+[#37]: https://github.com/randomPoison/amethyst-editor-sync/pull/37
 
 ## [0.2.0] - 2018-10-14
 

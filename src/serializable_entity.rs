@@ -36,10 +36,10 @@ impl SerializableEntity {
     }
 
     /// Gets the ID of the entity.
-    pub fn id(&self) -> u32 { self.0.id() }
+    pub fn id(self) -> u32 { self.0.id() }
 
     /// Gets the generation of the entity.
-    pub fn gen(&self) -> Generation { self.0.gen() }
+    pub fn gen(self) -> Generation { self.0.gen() }
 }
 
 impl Serialize for SerializableEntity {
@@ -70,4 +70,12 @@ impl From<SerializableEntity> for Entity {
     fn from(from: SerializableEntity) -> Self {
         from.0
     }
+}
+
+/// Secret struct for easy serialization/deserialization of `Entity` within
+/// `SerializableEntity`.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct DeserializableEntity {
+    pub(crate) id: u32,
+    pub(crate) generation: i32,
 }
