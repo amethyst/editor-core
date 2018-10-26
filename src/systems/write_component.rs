@@ -38,7 +38,7 @@ impl<'a, T> System<'a> for WriteComponentSystem<T> where T: Component + Deserial
                 }
             };
 
-            if let Some(component) = storage.get_mut(incoming.entity.into()) {
+            if let Some(component) = storage.get_mut(incoming.entity) {
                 *component = updated;
             }
         }

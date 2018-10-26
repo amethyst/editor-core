@@ -95,7 +95,7 @@ fn main() -> amethyst::Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Ball {
     pub velocity: [f32; 2],
     pub radius: f32,
@@ -105,14 +105,14 @@ impl Component for Ball {
     type Storage = DenseVecStorage<Self>;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[derive(PartialEq, Eq)]
 pub enum Side {
     Left,
     Right,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Paddle {
     pub velocity: f32,
     pub side: Side,

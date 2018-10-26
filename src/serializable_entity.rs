@@ -75,7 +75,7 @@ impl From<SerializableEntity> for Entity {
 /// Secret struct for easy serialization/deserialization of `Entity` within
 /// `SerializableEntity`.
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub(crate) struct DeserializableEntity {
+pub struct DeserializableEntity {
     pub(crate) id: u32,
     pub(crate) generation: i32,
 }

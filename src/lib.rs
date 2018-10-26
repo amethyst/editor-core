@@ -105,7 +105,7 @@ use std::net::UdpSocket;
 
 pub use editor_log::EditorLogger;
 pub use ::serializable_entity::SerializableEntity;
-pub use type_set::{ReadComponentSet, ReadResourceSet, TypeSet, WriteResourceSet};
+pub use type_set::{ReadComponentSet, ReadResourceSet, TypeSet, WriteComponentSet, WriteResourceSet};
 
 #[macro_use]
 mod type_set;
@@ -147,7 +147,7 @@ enum SerializedData {
 /// Messages sent from the editor to the game.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
-enum IncomingMessage {
+pub enum IncomingMessage {
     ComponentUpdate {
         id: String,
         entity: DeserializableEntity,
@@ -161,7 +161,7 @@ enum IncomingMessage {
 }
 
 #[derive(Debug, Clone)]
-struct IncomingComponent {
+pub struct IncomingComponent {
     entity: Entity,
     data: serde_json::Value,
 }
@@ -203,26 +203,29 @@ impl EditorConnection {
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
-pub struct SyncEditorBundle<T, U, V> where
+pub struct SyncEditorBundle<T, U, V, W> where
     T: ReadComponentSet,
-    U: ReadResourceSet,
-    V: ReadResourceSet + WriteResourceSet,
+    U: ReadComponentSet + WriteComponentSet,
+    V: ReadResourceSet,
+    W: ReadResourceSet + WriteResourceSet,
  {
     send_interval: Duration,
-    components: TypeSet<T>,
-    read_resources: TypeSet<U>,
-    write_resources: TypeSet<V>,
+    read_components: TypeSet<T>,
+    write_components: TypeSet<U>,
+    read_resources: TypeSet<V>,
+    write_resources: TypeSet<W>,
     sender: Sender<SerializedData>,
     receiver: Receiver<SerializedData>,
 }
 
-impl SyncEditorBundle<(), (), ()> {
+impl SyncEditorBundle<(), (), (), ()> {
     /// Construct an empty bundle.
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         SyncEditorBundle {
             send_interval: Duration::from_millis(200),
-            components: TypeSet::new(),
+            read_components: TypeSet::new(),
+            write_components: TypeSet::new(),
             read_resources: TypeSet::new(),
             write_resources: TypeSet::new(),
             sender,
@@ -231,14 +234,15 @@ impl SyncEditorBundle<(), (), ()> {
     }
 }
 
-impl Default for SyncEditorBundle<(), (), ()> {
+impl Default for SyncEditorBundle<(), (), (), ()> {
     fn default() -> Self { Self::new() }
 }
 
-impl<T, U, V> SyncEditorBundle<T, U, V> where
+impl<T, U, V, W> SyncEditorBundle<T, U, V, W> where
     T: ReadComponentSet,
-    U: ReadResourceSet,
-    V: ReadResourceSet + WriteResourceSet,
+    U: ReadComponentSet + WriteComponentSet,
+    V: ReadResourceSet,
+    W: ReadResourceSet + WriteResourceSet,
 {
     /// Synchronize amethyst types.
     ///
@@ -247,18 +251,21 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
         self
     ) -> SyncEditorBundle<
         impl ReadComponentSet,
+        impl ReadComponentSet + WriteComponentSet,
         impl ReadResourceSet,
         impl ReadResourceSet + WriteResourceSet,
     > {
         use amethyst::renderer::{AmbientColor, Camera, Light};
         use amethyst::core::{GlobalTransform, Transform};
 
-        let components = type_set![Light, Camera, Transform, GlobalTransform];
+        let read_components = type_set![];
+        let write_components = type_set![Light, Camera, Transform, GlobalTransform];
         let read_resources = type_set![];
         let write_resources = type_set![AmbientColor];
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components.with_set(&components),
+            read_components: self.read_components.with_set(&read_components),
+            write_components: self.write_components.with_set(&write_components),
             read_resources: self.read_resources.with_set(&read_resources),
             write_resources: self.write_resources.with_set(&write_resources),
             sender: self.sender,
@@ -268,13 +275,14 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
 
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`ReadComponentSystem`] being added.
-    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ReadComponentSet, U, V>
+    pub fn sync_component<C>(self, name: &'static str) -> SyncEditorBundle<T, impl ReadComponentSet + WriteComponentSet, V, W>
     where
-        C: Component + Serialize+Send,
+        C: Component + Serialize + DeserializeOwned + Send + Sync,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components.with::<C>(name),
+            read_components: self.read_components,
+            write_components: self.write_components.with::<C>(name),
             read_resources: self.read_resources,
             write_resources: self.write_resources,
             sender: self.sender,
@@ -284,13 +292,44 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
 
     /// Register a set of components for synchronizing with the editor. This will result
     /// in a [`ReadComponentSystem`] being added for each component type in the set.
-    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ReadComponentSet, U, V>
+    pub fn sync_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<T, impl ReadComponentSet + WriteComponentSet, V, W>
     where
-        C: ReadComponentSet,
+        C: ReadComponentSet + WriteComponentSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components.with_set(set),
+            read_components: self.read_components,
+            write_components: self.write_components.with_set(set),
+            read_resources: self.read_resources,
+            write_resources: self.write_resources,
+            sender: self.sender,
+            receiver: self.receiver,
+        }
+    }
+
+    pub fn read_component<C>(self, name: &'static str) -> SyncEditorBundle<impl ReadComponentSet, U, V, W>
+    where
+        C: Component + Serialize + Send + Sync,
+    {
+        SyncEditorBundle {
+            send_interval: self.send_interval,
+            read_components: self.read_components.with::<C>(name),
+            write_components: self.write_components,
+            read_resources: self.read_resources,
+            write_resources: self.write_resources,
+            sender: self.sender,
+            receiver: self.receiver,
+        }
+    }
+
+    pub fn read_components<C>(self, set: &TypeSet<C>) -> SyncEditorBundle<impl ReadComponentSet, U, V, W>
+    where
+        C: ReadComponentSet + WriteComponentSet
+    {
+        SyncEditorBundle {
+            send_interval: self.send_interval,
+            read_components: self.read_components.with_set(set),
+            write_components: self.write_components,
             read_resources: self.read_resources,
             write_resources: self.write_resources,
             sender: self.sender,
@@ -307,13 +346,14 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     /// It is safe to register a resource type for the editor even if it's not also going to be
     /// registered in the world. A warning will be emitted at runtime notifing that the resource
     /// won't appear in the editor, however it will not otherwise be treated as an error.
-    pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
+    pub fn sync_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, U, V, impl ReadResourceSet + WriteResourceSet>
     where
         R: Resource + Serialize + DeserializeOwned,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components,
+            read_components: self.read_components,
+            write_components: self.write_components,
             read_resources: self.read_resources,
             write_resources: self.write_resources.with::<R>(name),
             sender: self.sender,
@@ -326,13 +366,14 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     /// At runtime, the state data for the resources in `R` will be sent to the editor for
     /// viewing and debugging. The editor will also be able to send back changes to the
     /// resource's data, which will automatically be applied to the local world state.
-    pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, U, impl ReadResourceSet + WriteResourceSet>
+    pub fn sync_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, U, V, impl ReadResourceSet + WriteResourceSet>
     where
         R: ReadResourceSet + WriteResourceSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components,
+            read_components: self.read_components,
+            write_components: self.write_components,
             read_resources: self.read_resources,
             write_resources: self.write_resources.with_set(set),
             sender: self.sender,
@@ -349,13 +390,14 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     ///
     /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
     /// [`sync_resource`]: #method.sync_resource
-    pub fn read_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, impl ReadResourceSet, V>
+    pub fn read_resource<R>(self, name: &'static str) -> SyncEditorBundle<T, U, impl ReadResourceSet, W>
     where
         R: Resource + Serialize,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components,
+            read_components: self.read_components,
+            write_components: self.write_components,
             read_resources: self.read_resources.with::<R>(name),
             write_resources: self.write_resources,
             sender: self.sender,
@@ -373,13 +415,14 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     ///
     /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
     /// [`sync_resources`]: #method.sync_resources
-    pub fn read_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, impl ReadResourceSet, V>
+    pub fn read_resources<R>(self, set: &TypeSet<R>) -> SyncEditorBundle<T, U, impl ReadResourceSet, W>
     where
         R: ReadResourceSet,
     {
         SyncEditorBundle {
             send_interval: self.send_interval,
-            components: self.components,
+            read_components: self.read_components,
+            write_components: self.write_components,
             read_resources: self.read_resources.with_set(set),
             write_resources: self.write_resources,
             sender: self.sender,
@@ -396,7 +439,7 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     ///
     /// Note that log output is sent every frame regardless of this interval, the interval only
     /// controls how often the game's state is sent.
-    pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U, V> {
+    pub fn send_interval(mut self, send_interval: Duration) -> SyncEditorBundle<T, U, V, W> {
         self.send_interval = send_interval;
         self
     }
@@ -407,10 +450,11 @@ impl<T, U, V> SyncEditorBundle<T, U, V> where
     }
 }
 
-impl<'a, 'b, T, U, V> SystemBundle<'a, 'b> for SyncEditorBundle<T, U, V> where
+impl<'a, 'b, T, U, V, W> SystemBundle<'a, 'b> for SyncEditorBundle<T, U, V, W> where
     T: ReadComponentSet,
-    U: ReadResourceSet,
-    V: ReadResourceSet + WriteResourceSet,
+    U: ReadComponentSet + WriteComponentSet,
+    V: ReadResourceSet,
+    W: ReadResourceSet + WriteResourceSet,
 {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
         let mut sync_system = SyncEditorSystem::from_channel(
@@ -422,12 +466,17 @@ impl<'a, 'b, T, U, V> SystemBundle<'a, 'b> for SyncEditorBundle<T, U, V> where
 
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
-        self.components.create_component_sync_systems(dispatcher, &connection);
+        self.read_components.create_component_read_systems(dispatcher, &connection);
+        self.write_components.create_component_read_systems(dispatcher, &connection);
         self.read_resources.create_resource_read_systems(dispatcher, &connection);
         self.write_resources.create_resource_read_systems(dispatcher, &connection);
 
         // All systems must have finished serializing before it can be send to the editor.
         dispatcher.add_barrier();
+        self.write_components.create_component_write_systems(
+            dispatcher,
+            &mut sync_system.component_deserializer_map,
+        );
         self.write_resources.create_resource_write_systems(
             dispatcher,
             &mut sync_system.deserializer_map,
@@ -629,6 +678,8 @@ impl<'a> System<'a> for SyncEditorSystem {
                 continue;
             }
 
+            debug!("Packet: {:?}", &buf[..bytes_read]);
+
             // Add the bytes from the incoming packet to the buffer.
             self.incoming_buffer.extend_from_slice(&buf[..bytes_read]);
         }
@@ -643,13 +694,18 @@ impl<'a> System<'a> for SyncEditorSystem {
                 let result = str::from_utf8(message_bytes)
                     .ok()
                     .and_then(|message| serde_json::from_str(message).ok());
+                debug!("Message str: {:?}", result);
                 if let Some(message) = result {
+                    debug!("Message: {:#?}", message);
+
                     match message {
                         IncomingMessage::ComponentUpdate { id, entity: entity_data, data } => {
+
                             let entity = entities.entity(entity_data.id);
 
                             // Skip the update if the entity is no longer valid.
                             if entity.gen().id() != entity_data.generation {
+                                debug!("Entity {:?} had invalid generation {} (expected {})", entity_data, entity_data.generation, entity.gen().id());
                                 continue;
                             }
 
@@ -658,6 +714,8 @@ impl<'a> System<'a> for SyncEditorSystem {
                                     entity,
                                     data,
                                 });
+                            } else {
+                                debug!("No deserializer found for component {:?}", id);
                             }
                         },
 
