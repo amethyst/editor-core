@@ -1,7 +1,7 @@
 use log;
 use log::{Level, Log, Metadata, Record};
 
-use EditorConnection;
+use types::EditorConnection;
 
 /// A `Log` implementation that sends all incoming logs to the editor, which may allow more
 /// interactive filtering.

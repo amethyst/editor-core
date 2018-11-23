@@ -1,9 +1,9 @@
-use ::{EditorConnection, SerializedComponent, SerializedData};
+use amethyst::ecs::{Component, Entities, Join, ReadStorage, System};
+use serde::export::PhantomData;
+use serde::Serialize;
 use serde_json;
 use std::str;
-use amethyst::ecs::*;
-use serde::Serialize;
-use serde::export::PhantomData;
+use types::{EditorConnection, SerializedComponent, SerializedData};
 
 /// A system that serializes all components of a specific type and sends them to the
 /// [`SyncEditorSystem`], which will sync them with the editor.
@@ -13,7 +13,7 @@ pub struct ReadComponentSystem<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T> ReadComponentSystem<T> {
+impl<'a, T> ReadComponentSystem<T> {
     pub fn new(name: &'static str, connection: EditorConnection) -> Self {
         Self {
             name,
@@ -23,17 +23,26 @@ impl<T> ReadComponentSystem<T> {
     }
 }
 
-impl<'a, T> System<'a> for ReadComponentSystem<T> where T: Component+Serialize {
+impl<'a, T> System<'a> for ReadComponentSystem<T>
+where
+    T: Component + Serialize,
+{
     type SystemData = (Entities<'a>, ReadStorage<'a, T>);
 
     fn run(&mut self, (entities, components): Self::SystemData) {
+        //println!("`ReadComponentSystem::run` for {}", self.name);
+
         let data = (&*entities, &components)
             .join()
             .map(|(e, c)| (e.id(), c))
             .collect();
-        let serialize_data = SerializedComponent { name: self.name, data };
+        let serialize_data = SerializedComponent {
+            name: self.name,
+            data,
+        };
         if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-            self.connection.send_data(SerializedData::Component(serialized));
+            self.connection
+                .send_data(SerializedData::Component(serialized));
         } else {
             error!("Failed to serialize component of type {}", self.name);
         }

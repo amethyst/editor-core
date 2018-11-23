@@ -1,8 +1,8 @@
-use serde::Serializer;
-use serde::Serialize;
-use serde::ser::SerializeStruct;
-use amethyst::ecs::Entity;
 use amethyst::ecs::world::Generation;
+use amethyst::ecs::Entity;
+use serde::ser::SerializeStruct;
+use serde::Serialize;
+use serde::Serializer;
 use std::fmt::{self, Debug, Formatter};
 
 /// Helper type that wraps an [`Entity`] to provide serialization support.
@@ -36,10 +36,14 @@ impl SerializableEntity {
     }
 
     /// Gets the ID of the entity.
-    pub fn id(self) -> u32 { self.0.id() }
+    pub fn id(self) -> u32 {
+        self.0.id()
+    }
 
     /// Gets the generation of the entity.
-    pub fn gen(self) -> Generation { self.0.gen() }
+    pub fn gen(self) -> Generation {
+        self.0.gen()
+    }
 }
 
 impl Serialize for SerializableEntity {

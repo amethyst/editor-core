@@ -1,5 +1,5 @@
-use amethyst::shred::Resource;
 use amethyst::ecs::*;
+use amethyst::shred::Resource;
 use crossbeam_channel::Receiver;
 use serde::de::DeserializeOwned;
 use serde_json;
@@ -28,18 +28,21 @@ impl<T> WriteResourceSystem<T> {
     }
 }
 
-impl<'a, T> System<'a> for WriteResourceSystem<T> where T: Resource + DeserializeOwned {
+impl<'a, T> System<'a> for WriteResourceSystem<T>
+where
+    T: Resource + DeserializeOwned,
+{
     type SystemData = Option<Write<'a, T>>;
 
     fn run(&mut self, data: Self::SystemData) {
-        trace!("`WriteResourceSystem::run` for {}", self.id);
+        //println!("`WriteResourceSystem::run` for {}", self.id);
 
         let mut resource = match data {
             Some(res) => res,
             None => return,
         };
 
-        while let Some(incoming) = self.incoming.try_recv() {
+        while let Ok(incoming) = self.incoming.try_recv() {
             debug!("Got incoming message for {}: {:?}", self.id, incoming);
 
             let updated = match serde_json::from_value(incoming) {
