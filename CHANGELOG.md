@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+* Updated to depend on version 0.9 of amethyst. If your project uses amethyst 0.8, you'll
+  need to upgrade to amethyst 0.9 in order to use amethyst-editor-sync.
+
 ## [0.3.0] - 2018-10-26
 
 ### Added

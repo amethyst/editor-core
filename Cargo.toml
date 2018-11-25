@@ -10,7 +10,7 @@ readme = "README.md"
 build = "build.rs"
 
 [dependencies]
-amethyst = "0.8"
+amethyst = "0.9"
 crossbeam-channel = "0.2.4"
 log = "0.4.4"
 log-once = "0.2.0"
