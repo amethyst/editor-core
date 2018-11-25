@@ -104,7 +104,6 @@ impl<'a> System<'a> for EditorInputSystem {
 
                 if let Some(message) = result {
                     debug!("Message: {:#?}", message);
-                    println!("Message: {:#?}", message);
 
                     match message {
                         IncomingMessage::ComponentUpdate {
@@ -146,7 +145,6 @@ impl<'a> System<'a> for EditorInputSystem {
                         }
 
                         IncomingMessage::DestroyEntities { entities } => {
-                            println!("Destroy: {:?}", entities);
                             self.entity_destroyer
                                 .send(EntityMessage::Destroy(entities.iter().map(|e| e.id).collect()));
                         }
