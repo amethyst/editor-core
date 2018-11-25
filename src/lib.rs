@@ -88,9 +88,6 @@ extern crate log_once;
 extern crate serde;
 extern crate serde_json;
 
-use serde::Deserialize;
-use serde::Serialize;
-
 pub use bundle::SyncEditorBundle;
 pub use editor_log::EditorLogger;
 pub use serializable_entity::SerializableEntity;

@@ -1,6 +1,5 @@
 use amethyst::core::{Result as BundleResult, SystemBundle};
-use amethyst::ecs::Component;
-use amethyst::ecs::DispatcherBuilder;
+use amethyst::ecs::{Component, DispatcherBuilder};
 use amethyst::shred::Resource;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -9,9 +8,7 @@ use std::net::UdpSocket;
 use std::time::Duration;
 use systems::*;
 use type_set::*;
-use types::ComponentMap;
-use types::EditorConnection;
-use types::ResourceMap;
+use types::{ComponentMap, EditorConnection, EntityMessage, ResourceMap};
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
@@ -352,9 +349,13 @@ where
     W: ReadResourceSet + WriteResourceSet,
 {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
+        let (ec_sender, ec_receiver) = crossbeam_channel::unbounded::<EntityMessage>();
+        let (ed_sender, ed_receiver) = crossbeam_channel::unbounded::<EntityMessage>();
         let input_system = EditorInputSystem::new(
             self.component_map.clone(),
             self.resource_map.clone(),
+            ec_sender,
+            ed_sender,
             self.socket.try_clone().ok().unwrap(),
         );
         dispatcher.add(input_system, "editor_input_system", &[]);
@@ -368,6 +369,10 @@ where
             .create_component_write_systems(dispatcher, self.component_map);
         self.write_resources
             .create_resource_write_systems(dispatcher, self.resource_map);
+        let entity_creator = CreateEntitiesSystem::new(ec_receiver);
+        dispatcher.add(entity_creator, "entity_creator", &[]);
+        let entity_destroyer = DestroyEntitiesSystem::new(ed_receiver);
+        dispatcher.add(entity_destroyer, "entity_destroyer", &[]);
 
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();

@@ -1,7 +1,6 @@
-use amethyst::ecs::*;
-use crossbeam_channel::{Receiver, Sender};
-use serde_json;
-use types::EditorConnection;
+use amethyst::ecs::{Entities, System};
+use crossbeam_channel::Receiver;
+use types::EntityMessage;
 
 /// A system that deserializes incoming updates for a resource and applies
 /// them to the world state.
@@ -11,22 +10,12 @@ use types::EditorConnection;
 ///
 /// [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
 pub(crate) struct CreateEntitiesSystem {
-    sender: Sender<serde_json::Value>,
-    receiver: Receiver<serde_json::Value>,
-    connection: EditorConnection,
+    receiver: Receiver<EntityMessage>,
 }
 
 impl CreateEntitiesSystem {
-    pub(crate) fn new(
-        sender: Sender<serde_json::Value>,
-        receiver: Receiver<serde_json::Value>,
-        connection: EditorConnection,
-    ) -> Self {
-        CreateEntitiesSystem {
-            sender,
-            receiver,
-            connection,
-        }
+    pub(crate) fn new(receiver: Receiver<EntityMessage>) -> Self {
+        CreateEntitiesSystem { receiver }
     }
 }
 
@@ -41,20 +30,15 @@ impl<'a> System<'a> for CreateEntitiesSystem {
             None => return,
         };
 
-        while let Ok(amount) = self.receiver.try_recv() {
-            println!("Got incoming message for: {:?}", amount);
-
-            let updated = match serde_json::from_value(amount) {
-                Ok(updated) => updated,
-                Err(error) => {
-                    println!("Failed to deserialize amount: {:?}", error);
-                    continue;
+        while let Ok(message) = self.receiver.try_recv() {
+            match message {
+                EntityMessage::Create(amount) => {
+                    let mut ids = Vec::with_capacity(amount);
+                    for _ in 0..amount {
+                        ids.push(entities.create().id());
+                    }
                 }
-            };
-
-            let mut ids = Vec::with_capacity(updated);
-            for _ in 0..updated {
-                ids.push(entities.create().id());
+                _ => (),
             }
         }
     }

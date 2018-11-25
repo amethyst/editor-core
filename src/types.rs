@@ -33,6 +33,11 @@ pub enum SerializedData {
     Message(String),
 }
 
+pub enum EntityMessage {
+    Create(usize),
+    Destroy(Vec<u32>),
+}
+
 /// Messages sent from the editor to the game.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
@@ -50,6 +55,10 @@ pub enum IncomingMessage {
 
     CreateEntities {
         amount: usize,
+    },
+
+    DestroyEntities {
+        entities: Vec<DeserializableEntity>,
     },
 }
 

@@ -1,12 +1,9 @@
-use amethyst::ecs::Entities;
-use amethyst::ecs::System;
+use amethyst::ecs::{Entities, System};
+use crossbeam_channel::Sender;
 use std::io;
 use std::net::UdpSocket;
 use std::str;
-use types::ComponentMap;
-use types::IncomingComponent;
-use types::IncomingMessage;
-use types::ResourceMap;
+use types::{ComponentMap, EntityMessage, IncomingComponent, IncomingMessage, ResourceMap};
 
 pub struct EditorInputSystem {
     socket: UdpSocket,
@@ -16,7 +13,8 @@ pub struct EditorInputSystem {
     // the corresponding local data.
     component_map: ComponentMap,
     resource_map: ResourceMap,
-
+    entity_creator: Sender<EntityMessage>,
+    entity_destroyer: Sender<EntityMessage>,
     incoming_buffer: Vec<u8>,
 }
 
@@ -24,6 +22,8 @@ impl EditorInputSystem {
     pub fn new(
         component_map: ComponentMap,
         resource_map: ResourceMap,
+        entity_creator: Sender<EntityMessage>,
+        entity_destroyer: Sender<EntityMessage>,
         socket: UdpSocket,
     ) -> EditorInputSystem {
         // Create the socket used for communicating with the editor.
@@ -35,6 +35,8 @@ impl EditorInputSystem {
             socket,
             component_map,
             resource_map,
+            entity_creator,
+            entity_destroyer,
             incoming_buffer: Vec::with_capacity(1024),
         }
     }
@@ -99,8 +101,13 @@ impl<'a> System<'a> for EditorInputSystem {
                     .ok()
                     .and_then(|message| serde_json::from_str(message).ok());
                 debug!("Message str: {:?}", result);
+                println!("Message str: {:?}", str::from_utf8(message_bytes)
+                    .ok());
+                println!("Message str: {:?}", result);
+
                 if let Some(message) = result {
                     debug!("Message: {:#?}", message);
+                    println!("Message: {:#?}", message);
 
                     match message {
                         IncomingMessage::ComponentUpdate {
@@ -137,7 +144,15 @@ impl<'a> System<'a> for EditorInputSystem {
                             }
                         }
 
-                        IncomingMessage::CreateEntities { amount } => {}
+                        IncomingMessage::CreateEntities { amount } => {
+                            self.entity_creator.send(EntityMessage::Create(amount));
+                        }
+
+                        IncomingMessage::DestroyEntities { entities } => {
+                            println!("Destroy: {:?}", entities);
+                            self.entity_destroyer
+                                .send(EntityMessage::Destroy(entities.iter().map(|e| e.id).collect()));
+                        }
                     }
                 }
             }
