@@ -101,9 +101,6 @@ impl<'a> System<'a> for EditorInputSystem {
                     .ok()
                     .and_then(|message| serde_json::from_str(message).ok());
                 debug!("Message str: {:?}", result);
-                println!("Message str: {:?}", str::from_utf8(message_bytes)
-                    .ok());
-                println!("Message str: {:?}", result);
 
                 if let Some(message) = result {
                     debug!("Message: {:#?}", message);
