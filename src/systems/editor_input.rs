@@ -142,8 +142,9 @@ impl<'a> System<'a> for EditorInputSystem {
                         }
 
                         IncomingMessage::DestroyEntities { entities } => {
-                            self.entity_handler
-                                .send(EntityMessage::Destroy(entities.iter().map(|e| e.id).collect()));
+                            self.entity_handler.send(EntityMessage::Destroy(
+                                entities.iter().map(|e| e.id).collect(),
+                            ));
                         }
                     }
                 }

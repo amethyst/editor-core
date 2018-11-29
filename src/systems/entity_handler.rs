@@ -42,7 +42,7 @@ impl<'a> System<'a> for EntityHandlerSystem {
                     for id in ids {
                         let entity = entities.entity(id);
                         entities.delete(entity);
-                    }                    
+                    }
                 }
             }
         }

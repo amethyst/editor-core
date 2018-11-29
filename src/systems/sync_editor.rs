@@ -1,10 +1,10 @@
-use amethyst::ecs::{ Entities, Join, System };
+use amethyst::ecs::{Entities, Join, System};
 use crossbeam_channel::Receiver;
 use serializable_entity::SerializableEntity;
 use std::cmp::min;
 use std::fmt::Write;
 use std::net::UdpSocket;
-use std::time::{ Duration, Instant};
+use std::time::{Duration, Instant};
 use types::SerializedData;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
