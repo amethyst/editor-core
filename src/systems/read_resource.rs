@@ -47,8 +47,6 @@ where
             }
         };
 
-        //println!("`ReadResourceSystem::run` for {}", self.name);
-
         let serialize_data = SerializedResource {
             name: self.name,
             data: &*resource,

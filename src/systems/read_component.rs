@@ -30,8 +30,6 @@ where
     type SystemData = (Entities<'a>, ReadStorage<'a, T>);
 
     fn run(&mut self, (entities, components): Self::SystemData) {
-        //println!("`ReadComponentSystem::run` for {}", self.name);
-
         let data = (&*entities, &components)
             .join()
             .map(|(e, c)| (e.id(), c))

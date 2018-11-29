@@ -36,15 +36,15 @@ where
     type SystemData = WriteStorage<'a, T>;
 
     fn run(&mut self, mut storage: Self::SystemData) {
-        //println!("`WriteComponentSystem::run` for {}", self.id);
+        trace!("`WriteComponentSystem::run` for {}", self.id);
 
         while let Ok(event) = self.reader.try_recv() {
-            println!("Got incoming message for {}: {:?}", self.id, event.data);
+            debug!("Got incoming message for {}: {:?}", self.id, event.data);
 
             let updated = match serde_json::from_value(event.data.clone()) {
                 Ok(updated) => updated,
                 Err(error) => {
-                    println!("Failed to deserialize update for {}: {:?}", self.id, error);
+                    debug!("Failed to deserialize update for {}: {:?}", self.id, error);
                     continue;
                 }
             };

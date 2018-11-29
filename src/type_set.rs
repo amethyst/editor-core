@@ -30,7 +30,7 @@ macro_rules! type_set {
 #[derive(Default)]
 pub struct TypeSet<T> {
     // Stored in left to right traversal order of the type tree.
-    pub names: Vec<&'static str>,
+    pub(crate) names: Vec<&'static str>,
     _phantom: PhantomData<T>,
 }
 

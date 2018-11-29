@@ -9,17 +9,17 @@ use types::EntityMessage;
 /// with [`SyncEditorBundle`] by the player during setup for their game.
 ///
 /// [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
-pub(crate) struct CreateEntitiesSystem {
+pub(crate) struct EntityHandlerSystem {
     receiver: Receiver<EntityMessage>,
 }
 
-impl CreateEntitiesSystem {
+impl EntityHandlerSystem {
     pub(crate) fn new(receiver: Receiver<EntityMessage>) -> Self {
-        CreateEntitiesSystem { receiver }
+        EntityHandlerSystem { receiver }
     }
 }
 
-impl<'a> System<'a> for CreateEntitiesSystem {
+impl<'a> System<'a> for EntityHandlerSystem {
     type SystemData = Option<Entities<'a>>;
 
     fn run(&mut self, data: Self::SystemData) {
@@ -38,7 +38,12 @@ impl<'a> System<'a> for CreateEntitiesSystem {
                         ids.push(entities.create().id());
                     }
                 }
-                _ => (),
+                EntityMessage::Destroy(ids) => {
+                    for id in ids {
+                        let entity = entities.entity(id);
+                        entities.delete(entity);
+                    }                    
+                }
             }
         }
     }

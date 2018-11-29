@@ -13,8 +13,7 @@ pub struct EditorInputSystem {
     // the corresponding local data.
     component_map: ComponentMap,
     resource_map: ResourceMap,
-    entity_creator: Sender<EntityMessage>,
-    entity_destroyer: Sender<EntityMessage>,
+    entity_handler: Sender<EntityMessage>,
     incoming_buffer: Vec<u8>,
 }
 
@@ -22,8 +21,7 @@ impl EditorInputSystem {
     pub fn new(
         component_map: ComponentMap,
         resource_map: ResourceMap,
-        entity_creator: Sender<EntityMessage>,
-        entity_destroyer: Sender<EntityMessage>,
+        entity_handler: Sender<EntityMessage>,
         socket: UdpSocket,
     ) -> EditorInputSystem {
         // Create the socket used for communicating with the editor.
@@ -35,8 +33,7 @@ impl EditorInputSystem {
             socket,
             component_map,
             resource_map,
-            entity_creator,
-            entity_destroyer,
+            entity_handler,
             incoming_buffer: Vec::with_capacity(1024),
         }
     }
@@ -141,11 +138,11 @@ impl<'a> System<'a> for EditorInputSystem {
                         }
 
                         IncomingMessage::CreateEntities { amount } => {
-                            self.entity_creator.send(EntityMessage::Create(amount));
+                            self.entity_handler.send(EntityMessage::Create(amount));
                         }
 
                         IncomingMessage::DestroyEntities { entities } => {
-                            self.entity_destroyer
+                            self.entity_handler
                                 .send(EntityMessage::Destroy(entities.iter().map(|e| e.id).collect()));
                         }
                     }

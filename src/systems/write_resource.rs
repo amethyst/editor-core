@@ -35,7 +35,7 @@ where
     type SystemData = Option<Write<'a, T>>;
 
     fn run(&mut self, data: Self::SystemData) {
-        //println!("`WriteResourceSystem::run` for {}", self.id);
+        trace!("`WriteResourceSystem::run` for {}", self.id);
 
         let mut resource = match data {
             Some(res) => res,
