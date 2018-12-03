@@ -19,14 +19,14 @@ impl TestState {
     }
 }
 
-impl<'a, 'b> State<GameData<'a, 'b>> for TestState {
+impl<'a, 'b> SimpleState<'a, 'b> for TestState {
     fn on_start(&mut self, data: StateData<GameData>) {
         for _ in 0..self.num_entities {
             data.world.create_entity().build();
         }
     }
 
-    fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+    fn update(&mut self, data: &mut StateData<GameData>) -> SimpleTrans<'a, 'b> {
         data.data.update(&data.world);
 
         self.frames += 1;

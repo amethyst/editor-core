@@ -18,14 +18,14 @@ fn serialize_resource() -> amethyst::Result<()> {
         frames: usize,
     };
 
-    impl<'a, 'b> State<GameData<'a, 'b>> for TestState {
+    impl<'a, 'b> SimpleState<'a, 'b> for TestState {
         fn on_start(&mut self, data: StateData<GameData>) {
             data.world.add_resource(SimpleResource {
                 value: 123,
             });
         }
 
-        fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+        fn update(&mut self, data: &mut StateData<GameData>) -> SimpleTrans<'a, 'b> {
             data.data.update(&data.world);
 
             self.frames += 1;
@@ -56,8 +56,8 @@ fn missing_resource() -> amethyst::Result<()> {
         frames: usize,
     };
 
-    impl<'a, 'b> State<GameData<'a, 'b>> for TestState {
-        fn update(&mut self, data: StateData<GameData>) -> Trans<GameData<'a, 'b>> {
+    impl<'a, 'b> SimpleState<'a, 'b> for TestState {
+        fn update(&mut self, data: &mut StateData<GameData>) -> SimpleTrans<'a, 'b> {
             data.data.update(&data.world);
 
             self.frames += 1;
