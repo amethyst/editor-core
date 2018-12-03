@@ -4,7 +4,7 @@ use serde::Serialize;
 use serializable_entity::DeserializableEntity;
 use std::collections::HashMap;
 
-pub(crate) type ChannelMap<T> = HashMap<&'static str, (Sender<T>, Receiver<T>)>;
+pub(crate) type ChannelMap<T> = HashMap<&'static str, Sender<T>>;
 pub(crate) type ComponentMap = ChannelMap<IncomingComponent>;
 pub(crate) type ResourceMap = ChannelMap<serde_json::Value>;
 

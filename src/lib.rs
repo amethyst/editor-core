@@ -91,12 +91,7 @@ extern crate serde_json;
 pub use bundle::SyncEditorBundle;
 pub use editor_log::EditorLogger;
 pub use serializable_entity::SerializableEntity;
-pub use type_set::{
-    ReadComponentSet, ReadResourceSet, TypeSet, WriteComponentSet, WriteResourceSet,
-};
 
-#[macro_use]
-mod type_set;
 mod bundle;
 mod editor_log;
 mod serializable_entity;

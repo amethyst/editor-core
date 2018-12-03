@@ -122,7 +122,7 @@ impl<'a> System<'a> for EditorInputSystem {
                             }
 
                             if let Some(sender) = self.component_map.get(&*id) {
-                                sender.0.send(IncomingComponent { entity, data });
+                                sender.send(IncomingComponent { entity, data });
                             } else {
                                 debug!("No deserializer found for component {:?}", id);
                             }
@@ -133,7 +133,7 @@ impl<'a> System<'a> for EditorInputSystem {
                             // specified ID?
                             if let Some(sender) = self.resource_map.get(&*id) {
                                 // TODO: Should we do something to prevent this from blocking?
-                                sender.0.send(data);
+                                sender.send(data);
                             }
                         }
 
