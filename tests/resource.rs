@@ -20,9 +20,7 @@ fn serialize_resource() -> amethyst::Result<()> {
 
     impl<'a, 'b> SimpleState<'a, 'b> for TestState {
         fn on_start(&mut self, data: StateData<GameData>) {
-            data.world.add_resource(SimpleResource {
-                value: 123,
-            });
+            data.world.add_resource(SimpleResource { value: 123 });
         }
 
         fn update(&mut self, data: &mut StateData<GameData>) -> SimpleTrans<'a, 'b> {
@@ -37,12 +35,9 @@ fn serialize_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new()
-        .sync_resource::<SimpleResource>("Test State");
-    let game_data = GameDataBuilder::default()
-        .with_bundle(editor_sync_bundle)?;
-    let mut game = Application::build(".", TestState::default())?
-        .build(game_data)?;
+    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
+    let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 
     game.run();
 
@@ -69,12 +64,9 @@ fn missing_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new()
-        .sync_resource::<SimpleResource>("Test State");
-    let game_data = GameDataBuilder::default()
-        .with_bundle(editor_sync_bundle)?;
-    let mut game = Application::build(".", TestState::default())?
-        .build(game_data)?;
+    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
+    let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 
     game.run();
 

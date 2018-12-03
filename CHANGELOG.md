@@ -6,10 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Readonly components require Deserialize. ([#38])
+
+### Added
+
+* Create and destroy entities at runtime ([#40])
+
 ### Breaking Changes
 
 * Updated to depend on version 0.9 of amethyst. If your project uses amethyst 0.8, you'll
   need to upgrade to amethyst 0.9 in order to use amethyst-editor-sync.
+
+[#38]: https://github.com/randomPoison/amethyst-editor-sync/issues/38
+[#40]: https://github.com/randomPoison/amethyst-editor-sync/pull/40
 
 ## [0.3.0] - 2018-10-26
 

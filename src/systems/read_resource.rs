@@ -1,9 +1,9 @@
-use ::{EditorConnection, SerializedData, SerializedResource};
-use amethyst::shred::Resource;
 use amethyst::ecs::*;
+use amethyst::shred::Resource;
 use serde::Serialize;
 use serde_json;
 use std::marker::PhantomData;
+use types::{EditorConnection, SerializedData, SerializedResource};
 
 /// A system that serializes a resource of a specific type and sends it to the
 /// [`SyncEditorSystem`].
@@ -29,14 +29,20 @@ impl<T> ReadResourceSystem<T> {
     }
 }
 
-impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource + Serialize {
+impl<'a, T> System<'a> for ReadResourceSystem<T>
+where
+    T: Resource + Serialize,
+{
     type SystemData = Option<Read<'a, T>>;
 
     fn run(&mut self, resource: Self::SystemData) {
         let resource = match resource {
             Some(resource) => resource,
             None => {
-                warn_once!("Resource named {:?} wasn't registered and will not show up in the editor", self.name);
+                warn_once!(
+                    "Resource named {:?} wasn't registered and will not show up in the editor",
+                    self.name
+                );
                 return;
             }
         };
@@ -47,7 +53,8 @@ impl<'a, T> System<'a> for ReadResourceSystem<T> where T: Resource + Serialize {
         };
 
         if let Ok(serialized) = serde_json::to_string(&serialize_data) {
-            self.connection.send_data(SerializedData::Resource(serialized));
+            self.connection
+                .send_data(SerializedData::Resource(serialized));
         } else {
             warn!("Failed to serialize resource of type {}", self.name);
         }
