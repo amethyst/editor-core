@@ -11,34 +11,26 @@
 //! ```
 //! extern crate amethyst;
 //! extern crate amethyst_editor_sync;
-//! #[macro_use]
 //! extern crate serde;
+//! extern crate tap;
 //!
 //! use amethyst::core::Transform;
 //! use amethyst::ecs::*;
 //! use amethyst::prelude::*;
 //! use amethyst_editor_sync::*;
+//! use serde::*;
+//! use tap::*;
 //!
 //! # fn main() -> Result<(), amethyst::Error> {
-//! // Specify every component that you want to view in the editor.
-//! let components = type_set![MyComponent];
-//!
-//! // Do the same for your resources.
-//! let resources = type_set![MyResource];
-//!
-//! // Read-only resources (i.e. that don't implement `DeserializeOwned`) can still
-//! // be displayed in the editor, but they can't be edited.
-//! let read_only_resources = type_set![ReadOnlyResource];
-//!
 //! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
 //!     // Register the default types from the engine.
-//!     .sync_default_types()
+//!     .tap(SyncEditorBundle::sync_default_types)
 //!     // Register the components and resources specified above.
-//!     .sync_components(&components)
-//!     .sync_resources(&resources)
-//!     .read_resources(&read_only_resources);
+//!     .tap(|bundle| bundle.sync_component::<MyComponent>("MyComponent"))
+//!     .tap(|bundle| bundle.sync_resource::<MyResource>("MyResource"))
+//!     .tap(|bundle| bundle.read_resource::<ReadOnlyResource>("ReadOnlyResource"));
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;

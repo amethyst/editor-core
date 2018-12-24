@@ -20,23 +20,22 @@ Here's an example of how to setup an Amethyst game to communicate with the edito
 extern crate amethyst;
 extern crate amethyst_editor_sync;
 extern crate serde;
+extern crate tap;
 
 use amethyst::prelude::*;
 use amethyst::ecs::prelude::*;
 use amethyst_editor_sync::*;
 use serde::*;
+use tap::*;
 
 fn main() -> Result<(), amethyst::Error> {
-    // Specify every component that you want to view in the editor.
-    let components = type_set![Foo];
-
     // Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
     // data to the editor.
     let editor_bundle = SyncEditorBundle::new()
         // Register the default types from the engine.
-        .sync_default_types()
+        .tap(SyncEditorBundle::sync_default_types)
         // Register the components and resources specified above.
-        .sync_components(&components);
+        .tap(|bundle| bundle.sync_component::<Foo>("Foo"));
 
     let _game_data = GameDataBuilder::default()
         .with_bundle(editor_bundle)?;
