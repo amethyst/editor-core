@@ -3,6 +3,7 @@
 extern crate amethyst;
 extern crate amethyst_editor_sync;
 extern crate serde;
+extern crate tap;
 
 mod audio;
 mod bundle;
@@ -21,6 +22,7 @@ use amethyst::{
 };
 use amethyst_editor_sync::*;
 use serde::*;
+use tap::*;
 
 use audio::Music;
 use bundle::PongBundle;
@@ -36,22 +38,22 @@ const BALL_VELOCITY_X: f32 = 75.0;
 const BALL_VELOCITY_Y: f32 = 50.0;
 const BALL_RADIUS: f32 = 2.0;
 
-const AUDIO_MUSIC: &'static [&'static str] = &[
+const AUDIO_MUSIC: &[&str] = &[
     "audio/Computer_Music_All-Stars_-_Wheres_My_Jetpack.ogg",
     "audio/Computer_Music_All-Stars_-_Albatross_v2.ogg",
 ];
-const AUDIO_BOUNCE: &'static str = "audio/bounce.ogg";
-const AUDIO_SCORE: &'static str = "audio/score.ogg";
+const AUDIO_BOUNCE: &str = "audio/bounce.ogg";
+const AUDIO_SCORE: &str = "audio/score.ogg";
 
 fn main() -> amethyst::Result<()> {
     use pong::Pong;
 
-    let components = type_set![Ball, Paddle];
     let editor_sync_bundle = SyncEditorBundle::new()
-        .sync_default_types()
-        .sync_components(&components)
-        .sync_resource::<ScoreBoard>("Score Board");
-    EditorLogger::new(editor_sync_bundle.get_connection()).start();
+        .tap(SyncEditorBundle::sync_default_types)
+        .tap(|bundle| bundle.sync_component::<Ball>("Ball"))
+        .tap(|bundle| bundle.sync_component::<Paddle>("Paddle"))
+        .tap(|bundle| bundle.sync_resource::<ScoreBoard>("Score Board"));
+    EditorLogger::new(&editor_sync_bundle).start();
 
     let app_root = application_root_dir();
 
