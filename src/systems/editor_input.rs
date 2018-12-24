@@ -122,7 +122,10 @@ impl<'a> System<'a> for EditorInputSystem {
                             }
 
                             if let Some(sender) = self.component_map.get(&*id) {
-                                sender.send(IncomingComponent { entity, data });
+                                // TODO: Should we do something to prevent this from blocking?
+                                sender
+                                    .send(IncomingComponent { entity, data })
+                                    .expect("Disconnected from component system");
                             } else {
                                 debug!("No deserializer found for component {:?}", id);
                             }
@@ -133,18 +136,23 @@ impl<'a> System<'a> for EditorInputSystem {
                             // specified ID?
                             if let Some(sender) = self.resource_map.get(&*id) {
                                 // TODO: Should we do something to prevent this from blocking?
-                                sender.send(data);
+                                sender
+                                    .send(data)
+                                    .expect("Disconnected from resource system");
                             }
                         }
 
                         IncomingMessage::CreateEntities { amount } => {
-                            self.entity_handler.send(EntityMessage::Create(amount));
+                            self.entity_handler
+                                .send(EntityMessage::Create(amount))
+                                .expect("Disconnected from entity handler system");
                         }
 
                         IncomingMessage::DestroyEntities { entities } => {
-                            self.entity_handler.send(EntityMessage::Destroy(
-                                entities.iter().map(|e| e.id).collect(),
-                            ));
+                            self.entity_handler
+                                .send(EntityMessage::Destroy(
+                                    entities.iter().map(|e| e.id).collect(),
+                                )).expect("Disconnected from entity handler system");
                         }
                     }
                 }

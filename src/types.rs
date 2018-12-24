@@ -1,5 +1,5 @@
 use amethyst::ecs::Entity;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::Sender;
 use serde::Serialize;
 use serializable_entity::DeserializableEntity;
 use std::collections::HashMap;
@@ -84,7 +84,9 @@ impl EditorConnection {
 
     /// Send serialized data to the editor.
     pub fn send_data(&self, data: SerializedData) {
-        self.sender.send(data);
+        self.sender
+            .send(data)
+            .expect("Disconnected from editor sync system");
     }
 
     /// Send an arbitrary message to the editor.
