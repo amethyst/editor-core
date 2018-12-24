@@ -9,13 +9,8 @@ use serde::*;
 
 #[test]
 fn empty() {
-    let components = type_set![];
-    let resources = type_set![];
-
-    let editor_bundle = SyncEditorBundle::new()
-        .sync_default_types()
-        .sync_components(&components)
-        .sync_resources(&resources);
+    let mut editor_bundle = SyncEditorBundle::new();
+    editor_bundle.sync_default_types();
 
     let _ = GameDataBuilder::default()
         .with_bundle(editor_bundle);
@@ -30,11 +25,9 @@ fn register_component() {
         type Storage = DenseVecStorage<Self>;
     }
 
-    let components = type_set![Foo];
-
-    let editor_bundle = SyncEditorBundle::new()
-        .sync_default_types()
-        .sync_components(&components);
+    let mut editor_bundle = SyncEditorBundle::new();
+    editor_bundle.sync_default_types();
+    editor_bundle.sync_component::<Foo>("Foo");
 
     let _ = GameDataBuilder::default()
         .with_bundle(editor_bundle);

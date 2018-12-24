@@ -35,7 +35,9 @@ fn serialize_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let mut editor_sync_bundle = SyncEditorBundle::new();
+    editor_sync_bundle.sync_resource::<SimpleResource>("Test State");
+
     let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 
@@ -64,7 +66,9 @@ fn missing_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let mut editor_sync_bundle = SyncEditorBundle::new();
+    editor_sync_bundle.sync_resource::<SimpleResource>("Test State");
+
     let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 

@@ -47,20 +47,20 @@ impl SyncEditorBundle {
     /// Synchronize amethyst types.
     ///
     /// Currently only a small set is supported. This will be expanded in the future.
-    pub fn sync_default_types(&mut self) -> &mut Self {
+    pub fn sync_default_types(&mut self) {
         use amethyst::core::{GlobalTransform, Transform};
         use amethyst::renderer::{AmbientColor, Camera, Light};
 
-        self.sync_component::<Light>("Light")
-            .sync_component::<Camera>("Camera")
-            .sync_component::<Transform>("Transform")
-            .sync_component::<GlobalTransform>("Global Transform")
-            .sync_resource::<AmbientColor>("Ambient Color")
+        self.sync_component::<Light>("Light");
+        self.sync_component::<Camera>("Camera");
+        self.sync_component::<Transform>("Transform");
+        self.sync_component::<GlobalTransform>("Global Transform");
+        self.sync_resource::<AmbientColor>("Ambient Color");
     }
 
     /// Register a component for synchronizing with the editor. This will result in a
     /// [`ReadComponentSystem`] being added.
-    pub fn sync_component<C>(&mut self, name: &'static str) -> &mut Self
+    pub fn sync_component<C>(&mut self, name: &'static str)
     where
         C: Component + Serialize + DeserializeOwned + Send + Sync,
     {
@@ -79,11 +79,9 @@ impl SyncEditorBundle {
 
         self.read_systems.push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
         self.write_systems.push(Box::new(write_component) as Box<dyn RegisterWriteSystem>);
-
-        self
     }
 
-    pub fn read_component<C>(&mut self, name: &'static str) -> &mut Self
+    pub fn read_component<C>(&mut self, name: &'static str)
     where
         C: Component + Serialize + Send,
     {
@@ -92,8 +90,6 @@ impl SyncEditorBundle {
             _marker: Default::default(),
         };
         self.read_systems.push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
-
-        self
     }
 
     /// Registers a resource type to be synchronized with the editor.
@@ -105,7 +101,7 @@ impl SyncEditorBundle {
     /// It is safe to register a resource type for the editor even if it's not also going to be
     /// registered in the world. A warning will be emitted at runtime notifing that the resource
     /// won't appear in the editor, however it will not otherwise be treated as an error.
-    pub fn sync_resource<R>(&mut self, name: &'static str) -> &mut Self
+    pub fn sync_resource<R>(&mut self, name: &'static str)
     where
         R: Resource + Serialize + DeserializeOwned + Send + Sync,
     {
@@ -124,8 +120,6 @@ impl SyncEditorBundle {
 
         self.read_systems.push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
         self.write_systems.push(Box::new(write_resource) as Box<dyn RegisterWriteSystem>);
-
-        self
     }
 
     /// Registers a resource to be sent to the editor as read-only data.
@@ -137,7 +131,7 @@ impl SyncEditorBundle {
     ///
     /// [implement `DeserializeOwned`]: https://serde.rs/derive.html
     /// [`sync_resource`]: #method.sync_resource
-    pub fn read_resource<R>(&mut self, name: &'static str) -> &mut Self
+    pub fn read_resource<R>(&mut self, name: &'static str)
     where
         R: Resource + Serialize + Send,
     {
@@ -147,8 +141,6 @@ impl SyncEditorBundle {
         };
 
         self.read_systems.push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
-
-        self
     }
 
     /// Sets the interval at which the current game state will be sent to the editor.
@@ -160,9 +152,8 @@ impl SyncEditorBundle {
     ///
     /// Note that log output is sent every frame regardless of this interval, the interval only
     /// controls how often the game's state is sent.
-    pub fn send_interval(&mut self, send_interval: Duration) -> &mut Self {
+    pub fn send_interval(&mut self, send_interval: Duration) {
         self.send_interval = send_interval;
-        self
     }
 
     /// Retrieve a connection to send messages to the editor via the [`SyncEditorSystem`].
