@@ -3,19 +3,17 @@ extern crate amethyst_editor_sync;
 extern crate serde;
 extern crate tap;
 
-use amethyst::prelude::*;
 use amethyst::ecs::*;
+use amethyst::prelude::*;
 use amethyst_editor_sync::*;
 use serde::*;
 use tap::*;
 
 #[test]
 fn empty() {
-    let editor_bundle = SyncEditorBundle::new()
-        .tap(SyncEditorBundle::sync_default_types);
+    let editor_bundle = SyncEditorBundle::new().tap(SyncEditorBundle::sync_default_types);
 
-    let _ = GameDataBuilder::default()
-        .with_bundle(editor_bundle);
+    let _ = GameDataBuilder::default().with_bundle(editor_bundle);
 }
 
 #[test]
@@ -29,8 +27,7 @@ fn register_component() {
 
     let editor_bundle = SyncEditorBundle::new()
         .tap(SyncEditorBundle::sync_default_types)
-        .tap(|bundle| bundle.sync_component::<Foo>("Foo"));
+        .tap(|bundle| sync_components!(bundle, Foo));
 
-    let _ = GameDataBuilder::default()
-        .with_bundle(editor_bundle);
+    let _ = GameDataBuilder::default().with_bundle(editor_bundle);
 }

@@ -35,7 +35,8 @@ fn main() -> Result<(), amethyst::Error> {
         // Register the default types from the engine.
         .tap(SyncEditorBundle::sync_default_types)
         // Register the components and resources specified above.
-        .tap(|bundle| bundle.sync_component::<Foo>("Foo"));
+        .tap(|bundle| sync_components!(bundle, Foo))
+        .tap(|bundle| sync_resources!(bundle, BarResource));
 
     let _game_data = GameDataBuilder::default()
         .with_bundle(editor_bundle)?;
@@ -51,6 +52,11 @@ struct Foo {
 
 impl Component for Foo {
     type Storage = DenseVecStorage<Self>;
+}
+
+#[derive(Serialize, Deserialize)]
+struct BarResource {
+    bar: usize,
 }
 ```
 

@@ -1,7 +1,7 @@
+use crate::types::IncomingComponent;
 use amethyst::core::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::{Component, DispatcherBuilder};
 use amethyst::shred::Resource;
-use crate::types::{IncomingComponent};
 use crossbeam_channel::Receiver;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -22,6 +22,42 @@ pub struct SyncEditorBundle {
     component_map: ComponentMap,
     resource_map: ResourceMap,
     socket: UdpSocket,
+}
+
+#[macro_export]
+macro_rules! sync_components {
+    ($bundle:ident, $( $component:ty ),* $(,)*) => {
+        {
+            $( $bundle.sync_component::<$component>(stringify!($component)); )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! read_components {
+    ($bundle:ident, $( $component:ty ),* $(,)*) => {
+        {
+            $( $bundle.read_component::<$component>(stringify!($component)); )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! sync_resources {
+    ($bundle:ident, $( $resource:ty ),* $(,)*) => {
+        {
+            $( $bundle.sync_resource::<$resource>(stringify!($resource)); )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! read_resources {
+    ($bundle:ident, $( $resource:ty ),* $(,)*) => {
+        {
+            $( $bundle.read_resource::<$resource>(stringify!($resource)); )*
+        }
+    };
 }
 
 impl SyncEditorBundle {
@@ -51,11 +87,8 @@ impl SyncEditorBundle {
         use amethyst::core::{GlobalTransform, Transform};
         use amethyst::renderer::{AmbientColor, Camera, Light};
 
-        self.sync_component::<Light>("Light");
-        self.sync_component::<Camera>("Camera");
-        self.sync_component::<Transform>("Transform");
-        self.sync_component::<GlobalTransform>("Global Transform");
-        self.sync_resource::<AmbientColor>("Ambient Color");
+        sync_components!(self, Light, Camera, Transform, GlobalTransform);
+        sync_resources!(self, AmbientColor);
     }
 
     /// Register a component for synchronizing with the editor. This will result in a
@@ -77,8 +110,10 @@ impl SyncEditorBundle {
             _marker: Default::default(),
         };
 
-        self.read_systems.push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
-        self.write_systems.push(Box::new(write_component) as Box<dyn RegisterWriteSystem>);
+        self.read_systems
+            .push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
+        self.write_systems
+            .push(Box::new(write_component) as Box<dyn RegisterWriteSystem>);
     }
 
     pub fn read_component<C>(&mut self, name: &'static str)
@@ -89,7 +124,8 @@ impl SyncEditorBundle {
             name,
             _marker: Default::default(),
         };
-        self.read_systems.push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
+        self.read_systems
+            .push(Box::new(read_component) as Box<dyn RegisterReadSystem>);
     }
 
     /// Registers a resource type to be synchronized with the editor.
@@ -118,8 +154,10 @@ impl SyncEditorBundle {
             _marker: Default::default(),
         };
 
-        self.read_systems.push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
-        self.write_systems.push(Box::new(write_resource) as Box<dyn RegisterWriteSystem>);
+        self.read_systems
+            .push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
+        self.write_systems
+            .push(Box::new(write_resource) as Box<dyn RegisterWriteSystem>);
     }
 
     /// Registers a resource to be sent to the editor as read-only data.
@@ -140,7 +178,8 @@ impl SyncEditorBundle {
             _marker: Default::default(),
         };
 
-        self.read_systems.push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
+        self.read_systems
+            .push(Box::new(read_resource) as Box<dyn RegisterReadSystem>);
     }
 
     /// Sets the interval at which the current game state will be sent to the editor.
@@ -175,7 +214,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
             self.component_map.clone(),
             self.resource_map.clone(),
             entity_sender,
-            self.socket.try_clone().ok().unwrap(),
+            self.socket.try_clone().unwrap(),
         );
         dispatcher.add(input_system, "editor_input_system", &[]);
 
@@ -187,7 +226,11 @@ impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
         for write_system in self.write_systems {
             write_system.register(dispatcher);
         }
-        dispatcher.add(EntityHandlerSystem::new(entity_receiver), "entity_creator", &[]);
+        dispatcher.add(
+            EntityHandlerSystem::new(entity_receiver),
+            "entity_creator",
+            &[],
+        );
 
         // All systems must have finished editing data before syncing can start.
         dispatcher.add_barrier();
@@ -233,7 +276,11 @@ impl<T> RegisterReadSystem for ReadComponent<T>
 where
     T: Component + Serialize + Send,
 {
-    fn register(self: Box<Self>, dispatcher: &mut DispatcherBuilder, connection: &EditorConnection) {
+    fn register(
+        self: Box<Self>,
+        dispatcher: &mut DispatcherBuilder,
+        connection: &EditorConnection,
+    ) {
         dispatcher.add(
             ReadComponentSystem::<T>::new(self.name, connection.clone()),
             "",
@@ -246,7 +293,11 @@ impl<T> RegisterReadSystem for ReadResource<T>
 where
     T: Resource + Serialize + Send,
 {
-    fn register(self: Box<Self>, dispatcher: &mut DispatcherBuilder, connection: &EditorConnection) {
+    fn register(
+        self: Box<Self>,
+        dispatcher: &mut DispatcherBuilder,
+        connection: &EditorConnection,
+    ) {
         dispatcher.add(
             ReadResourceSystem::<T>::new(self.name, connection.clone()),
             "",

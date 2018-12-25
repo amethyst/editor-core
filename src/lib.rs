@@ -25,12 +25,17 @@
 //! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
+//!
 //!     // Register the default types from the engine.
 //!     .tap(SyncEditorBundle::sync_default_types)
-//!     // Register the components and resources specified above.
-//!     .tap(|bundle| bundle.sync_component::<MyComponent>("MyComponent"))
-//!     .tap(|bundle| bundle.sync_resource::<MyResource>("MyResource"))
-//!     .tap(|bundle| bundle.read_resource::<ReadOnlyResource>("ReadOnlyResource"));
+//!
+//!     // Register any custom components and resources for your game. By default, components
+//!     // and resources support reading and writing, allowing you to modify values at runtime
+//!     // from the editor. If your component should be read-only, use the `read_*` variant
+//!     // when registering the type.
+//!     .tap(|bundle| sync_components!(bundle, MyComponent))
+//!     .tap(|bundle| sync_resources!(bundle, MyResource))
+//!     .tap(|bundle| read_resources!(bundle, ReadOnlyResource));
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
