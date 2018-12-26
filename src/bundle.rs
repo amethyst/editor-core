@@ -24,6 +24,13 @@ pub struct SyncEditorBundle {
     socket: UdpSocket,
 }
 
+/// Registers one or more components to be syncronized with the editor.
+///
+/// Helper macro for quickly registering multiple components at once. This wraps
+/// calls to [`SyncEditorBundle::sync_component`], passing the stringified type
+/// name as the identifier for the component.
+///
+/// [`SyncEditorBundle::sync_component`]: ./struct.SyncEditorBundle.html#method.sync_component
 #[macro_export]
 macro_rules! sync_components {
     ($bundle:ident, $( $component:ty ),* $(,)*) => {
@@ -33,6 +40,13 @@ macro_rules! sync_components {
     };
 }
 
+/// Registers one or more components to be displayed as read-only in the editor.
+///
+/// Helper macro for quickly registering multiple components at once. This wraps
+/// calls to [`SyncEditorBundle::read_component`], passing the stringified type
+/// name as the identifier for the component.
+///
+/// [`SyncEditorBundle::read_component`]: ./struct.SyncEditorBundle.html#method.read_component
 #[macro_export]
 macro_rules! read_components {
     ($bundle:ident, $( $component:ty ),* $(,)*) => {
@@ -42,6 +56,13 @@ macro_rules! read_components {
     };
 }
 
+/// Registers one or more resources to be synchronized with the editor.
+///
+/// Helper macro for quickly registering multiple resources at once. This wraps
+/// calls to [`SyncEditorBundle::sync_resource`], passing the stringified type
+/// name as the identifier for the resource.
+///
+/// [`SyncEditorBundle::sync_resource`]: ./struct.SyncEditorBundle.html#method.sync_resource
 #[macro_export]
 macro_rules! sync_resources {
     ($bundle:ident, $( $resource:ty ),* $(,)*) => {
@@ -51,6 +72,13 @@ macro_rules! sync_resources {
     };
 }
 
+/// Registers one or more resources to be displayed as read-only in the editor.
+///
+/// Helper macro for quickly registering multiple resources at once. This wraps
+/// calls to [`SyncEditorBundle::read_resource`], passing the stringified type
+/// name as the identifier for the resource.
+///
+/// [`SyncEditorBundle::read_resource`]: ./struct.SyncEditorBundle.html#method.read_resource
 #[macro_export]
 macro_rules! read_resources {
     ($bundle:ident, $( $resource:ty ),* $(,)*) => {
@@ -338,4 +366,30 @@ trait RegisterReadSystem {
 
 trait RegisterWriteSystem {
     fn register(self: Box<Self>, dispatcher: &mut DispatcherBuilder);
+}
+
+#[cfg(test)]
+mod test {
+    use crate::SyncEditorBundle;
+    use amethyst::renderer::{AmbientColor, Camera, Light};
+
+    /// Tests that the various `sync_*` macros work without a trailing comma.
+    #[test]
+    fn no_trailing_comma() {
+        let mut bundle = SyncEditorBundle::new();
+        sync_components!(bundle, Light, Camera);
+        read_components!(bundle, Light, Camera);
+        sync_resources!(bundle, AmbientColor);
+        read_resources!(bundle, AmbientColor);
+    }
+
+    /// Tests that the various `sync_*` macros work with a trailing comma.
+    #[test]
+    fn trailing_comma() {
+        let mut bundle = SyncEditorBundle::new();
+        sync_components!(bundle, Light, Camera,);
+        read_components!(bundle, Light, Camera,);
+        sync_resources!(bundle, AmbientColor,);
+        read_resources!(bundle, AmbientColor,);
+    }
 }
