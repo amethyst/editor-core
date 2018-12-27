@@ -78,12 +78,12 @@ pub struct EditorConnection {
 
 impl EditorConnection {
     /// Construct a connection to the editor via sending messages to the [`SyncEditorSystem`].
-    pub fn new(sender: Sender<SerializedData>) -> Self {
+    pub(crate) fn new(sender: Sender<SerializedData>) -> Self {
         Self { sender }
     }
 
     /// Send serialized data to the editor.
-    pub fn send_data(&self, data: SerializedData) {
+    pub(crate) fn send_data(&self, data: SerializedData) {
         self.sender
             .send(data)
             .expect("Disconnected from editor sync system");
