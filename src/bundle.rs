@@ -239,6 +239,9 @@ impl Default for SyncEditorBundle {
 
 impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
+        // Create the receiver system, which will read any incoming messages from the
+        // editor and pass them to the corresponding systems for applying changes to
+        // components/resources/entities.
         let (entity_sender, entity_receiver) = crossbeam_channel::unbounded::<EntityMessage>();
         let receiver_system = EditorReceiverSystem::new(
             self.component_map.clone(),
@@ -248,29 +251,35 @@ impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
         );
         dispatcher.add(receiver_system, "editor_receiver_system", &[]);
 
-        // All systems must have finished serializing before it can be send to the editor.
-        dispatcher.add_barrier();
+        // Register the systems for each of the component/resource types that support
+        // being edited at runtime. Internally these declare a dependency on the
+        // editor receiver system.
         for write_system in self.write_systems {
             write_system.register(dispatcher);
         }
+
+        // Register the system that applies entity changes (creates/destroys entities).
+        // This must also depend on the editor reciever system so that it can apply
+        // an entity changes specified by the editor.
         dispatcher.add(
             EntityHandlerSystem::new(entity_receiver),
             "entity_creator",
-            &[],
+            &["editor_receiver_system"],
         );
 
-        // All systems must have finished editing data before syncing can start.
-        dispatcher.add_barrier();
+        // Register the systems for serializing each of the component/resource types.
         for read_system in self.read_systems {
             read_system.register(dispatcher, &self.sender);
         }
+
+        // Add a barrier to ensure that all of the
+        dispatcher.add_barrier();
 
         let sender_system = EditorSenderSystem::from_channel(
             self.receiver,
             Duration::from_millis(200),
             self.socket,
         );
-        dispatcher.add_barrier();
         dispatcher.add(sender_system, "editor_sender_system", &[]);
 
         Ok(())
@@ -341,7 +350,7 @@ where
         dispatcher.add(
             WriteComponentSystem::<T>::new(self.name, self.receiver),
             "",
-            &[],
+            &["editor_receiver_system"],
         );
     }
 }
@@ -354,7 +363,7 @@ where
         dispatcher.add(
             WriteResourceSystem::<T>::new(self.name, self.receiver),
             "",
-            &[],
+            &["editor_receiver_system"],
         );
     }
 }
