@@ -1,6 +1,6 @@
 use amethyst::ecs::{Entities, System};
 use crossbeam_channel::Receiver;
-use types::EntityMessage;
+use crate::types::EntityMessage;
 
 /// A system that deserializes incoming updates for a resource and applies
 /// them to the world state.

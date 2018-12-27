@@ -24,8 +24,8 @@ use amethyst_editor_sync::*;
 use serde::*;
 use tap::*;
 
-use audio::Music;
-use bundle::PongBundle;
+use crate::audio::Music;
+use crate::bundle::PongBundle;
 use std::time::Duration;
 
 const ARENA_HEIGHT: f32 = 100.0;
@@ -46,7 +46,7 @@ const AUDIO_BOUNCE: &str = "audio/bounce.ogg";
 const AUDIO_SCORE: &str = "audio/score.ogg";
 
 fn main() -> amethyst::Result<()> {
-    use pong::Pong;
+    use crate::pong::Pong;
 
     let editor_sync_bundle = SyncEditorBundle::new()
         .tap(SyncEditorBundle::sync_default_types)

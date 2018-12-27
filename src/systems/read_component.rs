@@ -3,7 +3,7 @@ use serde::export::PhantomData;
 use serde::Serialize;
 use serde_json;
 use std::str;
-use types::{EditorConnection, SerializedComponent, SerializedData};
+use crate::types::{EditorConnection, SerializedComponent, SerializedData};
 
 /// A system that serializes all components of a specific type and sends them to the
 /// [`SyncEditorSystem`], which will sync them with the editor.

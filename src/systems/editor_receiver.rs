@@ -3,7 +3,7 @@ use crossbeam_channel::Sender;
 use std::io;
 use std::net::UdpSocket;
 use std::str;
-use types::{ComponentMap, EntityMessage, IncomingComponent, IncomingMessage, ResourceMap};
+use crate::types::{ComponentMap, EntityMessage, IncomingComponent, IncomingMessage, ResourceMap};
 
 /// The system in charge of reading and dispatching incoming messages from
 /// the editor.

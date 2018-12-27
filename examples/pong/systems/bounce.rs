@@ -4,9 +4,9 @@ use amethyst::{
     core::transform::Transform,
     ecs::prelude::{Join, Read, ReadExpect, ReadStorage, System, WriteStorage},
 };
-use audio::{play_bounce, Sounds};
+use crate::audio::{play_bounce, Sounds};
 use std::ops::Deref;
-use {Ball, Paddle, Side};
+use crate::{Ball, Paddle, Side};
 
 /// This system is responsible for detecting collisions between balls and
 /// paddles, as well as balls and the top and bottom edges of the arena.
@@ -31,7 +31,7 @@ impl<'s> System<'s> for BounceSystem {
         // We also check for the velocity of the ball every time, to prevent multiple collisions
         // from occurring.
         for (ball, transform) in (&mut balls, &transforms).join() {
-            use ARENA_HEIGHT;
+            use crate::ARENA_HEIGHT;
 
             let ball_x = transform.translation[0];
             let ball_y = transform.translation[1];

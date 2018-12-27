@@ -2,7 +2,7 @@ use crate::bundle::SyncEditorBundle;
 use log;
 use log::{Level, Log, Metadata, Record};
 
-use types::EditorConnection;
+use crate::types::EditorConnection;
 
 /// A `Log` implementation that sends all incoming logs to the editor, which may allow more
 /// interactive filtering.

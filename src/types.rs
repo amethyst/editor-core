@@ -1,7 +1,7 @@
 use amethyst::ecs::Entity;
 use crossbeam_channel::Sender;
 use serde::Serialize;
-use serializable_entity::DeserializableEntity;
+use crate::serializable_entity::DeserializableEntity;
 use std::collections::HashMap;
 
 pub(crate) type ChannelMap<T> = HashMap<&'static str, Sender<T>>;

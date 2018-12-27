@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::net::UdpSocket;
 use std::time::Duration;
-use systems::*;
-use types::*;
+use crate::systems::*;
+use crate::types::*;
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.

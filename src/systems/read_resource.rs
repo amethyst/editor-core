@@ -3,7 +3,7 @@ use amethyst::shred::Resource;
 use serde::Serialize;
 use serde_json;
 use std::marker::PhantomData;
-use types::{EditorConnection, SerializedData, SerializedResource};
+use crate::types::{EditorConnection, SerializedData, SerializedResource};
 
 /// A system that serializes a resource of a specific type and sends it to the
 /// [`SyncEditorSystem`].

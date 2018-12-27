@@ -2,7 +2,7 @@ use amethyst::ecs::prelude::*;
 use serde::de::DeserializeOwned;
 use serde_json;
 use std::marker::PhantomData;
-use types::IncomingComponent;
+use crate::types::IncomingComponent;
 
 pub(crate) struct WriteComponentSystem<T>
 where
