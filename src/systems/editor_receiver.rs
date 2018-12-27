@@ -5,7 +5,9 @@ use std::net::UdpSocket;
 use std::str;
 use types::{ComponentMap, EntityMessage, IncomingComponent, IncomingMessage, ResourceMap};
 
-pub struct EditorInputSystem {
+/// The system in charge of reading and dispatching incoming messages from
+/// the editor.
+pub struct EditorReceiverSystem {
     socket: UdpSocket,
 
     // Map containing channels used to send incoming serialized component/resource data from the
@@ -17,19 +19,19 @@ pub struct EditorInputSystem {
     incoming_buffer: Vec<u8>,
 }
 
-impl EditorInputSystem {
+impl EditorReceiverSystem {
     pub fn new(
         component_map: ComponentMap,
         resource_map: ResourceMap,
         entity_handler: Sender<EntityMessage>,
         socket: UdpSocket,
-    ) -> EditorInputSystem {
+    ) -> EditorReceiverSystem {
         // Create the socket used for communicating with the editor.
         //
         // NOTE: We set the socket to nonblocking so that we don't block if there are no incoming
         // messages to read. We `expect` on the call to `set_nonblocking` because the game will
         // hang if the socket is still set to block when the game runs.
-        EditorInputSystem {
+        EditorReceiverSystem {
             socket,
             component_map,
             resource_map,
@@ -39,7 +41,7 @@ impl EditorInputSystem {
     }
 }
 
-impl<'a> System<'a> for EditorInputSystem {
+impl<'a> System<'a> for EditorReceiverSystem {
     type SystemData = Entities<'a>;
 
     fn run(&mut self, entities: Self::SystemData) {
@@ -152,7 +154,8 @@ impl<'a> System<'a> for EditorInputSystem {
                             self.entity_handler
                                 .send(EntityMessage::Destroy(
                                     entities.iter().map(|e| e.id).collect(),
-                                )).expect("Disconnected from entity handler system");
+                                ))
+                                .expect("Disconnected from entity handler system");
                         }
                     }
                 }
