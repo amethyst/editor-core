@@ -9,9 +9,8 @@ use types::SerializedData;
 
 const MAX_PACKET_SIZE: usize = 32 * 1024;
 
-/// A system that is in charge of coordinating a number of serialization systems and sending
-/// their results to the editor.
-pub struct SyncEditorSystem {
+/// The system in charge of sending updated state data to the editor process.
+pub struct EditorSenderSystem {
     receiver: Receiver<SerializedData>,
     socket: UdpSocket,
 
@@ -21,7 +20,7 @@ pub struct SyncEditorSystem {
     scratch_string: String,
 }
 
-impl SyncEditorSystem {
+impl EditorSenderSystem {
     pub fn from_channel(
         receiver: Receiver<SerializedData>,
         send_interval: Duration,
@@ -33,7 +32,7 @@ impl SyncEditorSystem {
         // messages to read. We `expect` on the call to `set_nonblocking` because the game will
         // hang if the socket is still set to block when the game runs.
         let scratch_string = String::with_capacity(MAX_PACKET_SIZE);
-        Self {
+        EditorSenderSystem {
             receiver,
             socket,
 
@@ -45,7 +44,7 @@ impl SyncEditorSystem {
     }
 }
 
-impl<'a> System<'a> for SyncEditorSystem {
+impl<'a> System<'a> for EditorSenderSystem {
     type SystemData = Entities<'a>;
 
     fn run(&mut self, entities: Self::SystemData) {

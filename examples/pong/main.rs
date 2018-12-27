@@ -52,7 +52,7 @@ fn main() -> amethyst::Result<()> {
         .tap(SyncEditorBundle::sync_default_types)
         .tap(|bundle| sync_components!(bundle, Ball, Paddle))
         .tap(|bundle| sync_resources!(bundle, ScoreBoard));
-    // EditorLogger::new(&editor_sync_bundle).start();
+    EditorLogger::new(&editor_sync_bundle).start();
 
     let app_root = application_root_dir();
 
