@@ -8,6 +8,7 @@ repository = "https://github.com/randomPoison/amethyst-editor-sync"
 documentation = "https://docs.rs/amethyst-editor-sync"
 readme = "README.md"
 build = "build.rs"
+edition = "2018"
 
 [dependencies]
 amethyst = "0.9"
