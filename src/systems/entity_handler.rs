@@ -41,7 +41,8 @@ impl<'a> System<'a> for EntityHandlerSystem {
                 EntityMessage::Destroy(ids) => {
                     for id in ids {
                         let entity = entities.entity(id);
-                        entities.delete(entity);
+                        let result = entities.delete(entity);
+                        trace!("Result of destroying entity {:?}: {:?}", id, result);
                     }
                 }
             }

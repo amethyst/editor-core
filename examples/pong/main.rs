@@ -3,6 +3,7 @@
 extern crate amethyst;
 extern crate amethyst_editor_sync;
 extern crate serde;
+extern crate tap;
 
 mod audio;
 mod bundle;
@@ -21,6 +22,7 @@ use amethyst::{
 };
 use amethyst_editor_sync::*;
 use serde::*;
+use tap::*;
 
 use audio::Music;
 use bundle::PongBundle;
@@ -36,22 +38,21 @@ const BALL_VELOCITY_X: f32 = 75.0;
 const BALL_VELOCITY_Y: f32 = 50.0;
 const BALL_RADIUS: f32 = 2.0;
 
-const AUDIO_MUSIC: &'static [&'static str] = &[
+const AUDIO_MUSIC: &[&str] = &[
     "audio/Computer_Music_All-Stars_-_Wheres_My_Jetpack.ogg",
     "audio/Computer_Music_All-Stars_-_Albatross_v2.ogg",
 ];
-const AUDIO_BOUNCE: &'static str = "audio/bounce.ogg";
-const AUDIO_SCORE: &'static str = "audio/score.ogg";
+const AUDIO_BOUNCE: &str = "audio/bounce.ogg";
+const AUDIO_SCORE: &str = "audio/score.ogg";
 
 fn main() -> amethyst::Result<()> {
     use pong::Pong;
 
-    let components = type_set![Ball, Paddle];
     let editor_sync_bundle = SyncEditorBundle::new()
-        .sync_default_types()
-        .sync_components(&components)
-        .sync_resource::<ScoreBoard>("Score Board");
-    EditorLogger::new(editor_sync_bundle.get_connection()).start();
+        .tap(SyncEditorBundle::sync_default_types)
+        .tap(|bundle| sync_components!(bundle, Ball, Paddle))
+        .tap(|bundle| sync_resources!(bundle, ScoreBoard));
+    // EditorLogger::new(&editor_sync_bundle).start();
 
     let app_root = application_root_dir();
 
@@ -78,7 +79,8 @@ fn main() -> amethyst::Result<()> {
     let game_data = GameDataBuilder::default()
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path)?,
-        )?.with_bundle(PongBundle)?
+        )?
+        .with_bundle(PongBundle)?
         .with_bundle(RenderBundle::new(pipe, Some(config)).with_sprite_sheet_processor())?
         .with_bundle(TransformBundle::new().with_dep(&["ball_system", "paddle_system"]))?
         .with_bundle(AudioBundle::new(|music: &mut Music| music.music.next()))?
@@ -88,7 +90,8 @@ fn main() -> amethyst::Result<()> {
         .with_frame_limit(
             FrameRateLimitStrategy::SleepAndYield(Duration::from_millis(2)),
             144,
-        ).build(game_data)?;
+        )
+        .build(game_data)?;
     game.run();
     Ok(())
 }

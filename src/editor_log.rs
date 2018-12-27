@@ -1,3 +1,4 @@
+use crate::bundle::SyncEditorBundle;
 use log;
 use log::{Level, Log, Metadata, Record};
 
@@ -11,8 +12,8 @@ pub struct EditorLogger {
 
 impl EditorLogger {
     /// Construct a logger that sends logs to the given editor.
-    pub fn new(editor_connection: EditorConnection) -> Self {
-        Self { editor_connection }
+    pub fn new(bundle: &SyncEditorBundle) -> Self {
+        Self { editor_connection: bundle.connection() }
     }
 
     /// Start this logger if no current logger is set.

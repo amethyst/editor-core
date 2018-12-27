@@ -1,10 +1,12 @@
 extern crate amethyst;
 extern crate amethyst_editor_sync;
-#[macro_use]
 extern crate serde;
+extern crate tap;
 
 use amethyst::prelude::*;
 use amethyst_editor_sync::*;
+use serde::*;
+use tap::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct SimpleResource {
@@ -35,7 +37,9 @@ fn serialize_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let editor_sync_bundle =
+        SyncEditorBundle::new().tap(|bundle| sync_resources!(bundle, SimpleResource));
+
     let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 
@@ -64,7 +68,9 @@ fn missing_resource() -> amethyst::Result<()> {
         }
     }
 
-    let editor_sync_bundle = SyncEditorBundle::new().sync_resource::<SimpleResource>("Test State");
+    let editor_sync_bundle =
+        SyncEditorBundle::new().tap(|bundle| sync_resources!(bundle, SimpleResource));
+
     let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(".", TestState::default())?.build(game_data)?;
 

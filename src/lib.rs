@@ -1,44 +1,64 @@
-//! Provides functionality that allows an Amethyst game to communicate with an editor.
+//! Allows an Amethyst game to communicate with a visualizer/debugger.
 //!
-//! [`SyncEditorSystem`] is the root system that will send your game's state data to an editor.
-//! In order to visualize your game's state in an editor, you'll also need to create a
-//! [`ReadComponentSystem`] or [`ReadResourceSystem`] for each component and resource that you want
-//! to visualize. It is possible to automatically create these systems by creating a
-//! [`SyncEditorBundle`] and registering each component and resource on it instead.
+//! This crate provides the hooks necessary for an Amethyst game to communicate
+//! with a visualizer/debugger running in another process. Once setup, it will
+//! send the game's state to the debugger, and can apply commands sent back.
 //!
-//! # Example
+//! # Usage
+//!
+//! In order to communicate with the editor, you must create a [`SyncEditorBundle`]
+//! and register all of the components and resources that you want to display
+//! or interact with in the debugger. Any component or resource that implements
+//! `Serialize` can be displayed, and any that implements `Deserialize`
+//! can also be modified at runtime within the debugger.
+//!
+//! Create an empty bundle with [`SyncEditorBundle::new`], and then use the
+//! various helper macros to register your custom types:
+//!
+//! * [`sync_components`]
+//! * [`read_components`]
+//! * [`sync_resources`]
+//! * [`read_resources`]
+//!
+//! You can also use the [`SyncEditorBundle::sync_default_types`] method to
+//! register all of the types provided by Amethyst that can be supported by
+//! the debugger.
+//!
+//! If you'd like a builder-like way of chaining method calls together in order
+//! to build your entire bundle in a single statement, we recommend using the
+//! [tap] crate to do so. The examples below demonstrate using tap in
+//! conjuction with the helper macros to succinctly register a variety of
+//! custom types.
+//!
+//! # Examples
 //!
 //! ```
 //! extern crate amethyst;
 //! extern crate amethyst_editor_sync;
-//! #[macro_use]
 //! extern crate serde;
+//! extern crate tap;
 //!
-//! use amethyst::core::Transform;
 //! use amethyst::ecs::*;
 //! use amethyst::prelude::*;
 //! use amethyst_editor_sync::*;
+//! use serde::*;
+//! use tap::*;
 //!
 //! # fn main() -> Result<(), amethyst::Error> {
-//! // Specify every component that you want to view in the editor.
-//! let components = type_set![MyComponent];
-//!
-//! // Do the same for your resources.
-//! let resources = type_set![MyResource];
-//!
-//! // Read-only resources (i.e. that don't implement `DeserializeOwned`) can still
-//! // be displayed in the editor, but they can't be edited.
-//! let read_only_resources = type_set![ReadOnlyResource];
-//!
 //! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
 //! let editor_sync_bundle = SyncEditorBundle::new()
+//!
 //!     // Register the default types from the engine.
-//!     .sync_default_types()
-//!     // Register the components and resources specified above.
-//!     .sync_components(&components)
-//!     .sync_resources(&resources)
-//!     .read_resources(&read_only_resources);
+//!     .tap(SyncEditorBundle::sync_default_types)
+//!
+//!     // Register any custom components and resources for your game. By default, components
+//!     // and resources support reading and writing, allowing you to modify values at runtime
+//!     // from the editor. If your component should be read-only, use the `read_*` variant
+//!     // when registering the type.
+//!     .tap(|bundle| sync_components!(bundle, MyComponent))
+//!     .tap(|bundle| sync_resources!(bundle, MyResource))
+//!     .tap(|bundle| read_resources!(bundle, ReadOnlyResource));
 //!
 //! let game_data = GameDataBuilder::default()
 //!     .with_bundle(editor_sync_bundle)?;
@@ -61,22 +81,22 @@
 //!     baz: usize,
 //! }
 //!
+//! // This resource can't be deserialized because it contains an Entity.
+//! // As such, we register it as read-only when setting up editor support.
 //! #[derive(Serialize)]
 //! struct ReadOnlyResource {
 //!     important_entity: SerializableEntity,
 //! }
 //! ```
 //!
-//! # Usage
-//! First, specify the components and resources that you want to see in the editor using the
-//! [`type_set!`] macro.
-//! Then create a [`SyncEditorBundle`] object and register the specified components and resources
-//! with `sync_components` and `sync_resources` respectively. Some of the engine-specific types can
-//! be registered automatically using the `sync_default_types` method. It is also possible to
-//! specify the types individually using `sync_component` and `sync_resource`, which allows changing
-//! the name of the type when viewed in the editor.
-//!
-//! Finally, add the [`SyncEditorBundle`] that you created to the game data.
+//! [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
+//! [`SyncEditorBundle::new`]: ./struct.SyncEditorBundle.html#method.new
+//! [`sync_components`]: ./macro.sync_components.html
+//! [`read_components`]: ./macro.read_components.html
+//! [`sync_resources`]: ./macro.sync_resources.html
+//! [`read_resources`]: ./macro.read_resources.html
+//! [`SyncEditorBundle::sync_default_types`]: ./struct.SyncEditorBundle.html#method.sync_default_types
+//! [tap]: https://crates.io/crates/tap
 
 extern crate amethyst;
 extern crate crossbeam_channel;
@@ -91,12 +111,7 @@ extern crate serde_json;
 pub use bundle::SyncEditorBundle;
 pub use editor_log::EditorLogger;
 pub use serializable_entity::SerializableEntity;
-pub use type_set::{
-    ReadComponentSet, ReadResourceSet, TypeSet, WriteComponentSet, WriteResourceSet,
-};
 
-#[macro_use]
-mod type_set;
 mod bundle;
 mod editor_log;
 mod serializable_entity;

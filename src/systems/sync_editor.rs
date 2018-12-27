@@ -104,7 +104,8 @@ impl<'a> System<'a> for SyncEditorSystem {
                 components.join(","),
                 resources.join(","),
                 messages.join(","),
-            );
+            )
+            .expect("Failed to write JSON string");
         } else {
             write!(
                 self.scratch_string,
@@ -116,7 +117,8 @@ impl<'a> System<'a> for SyncEditorSystem {
                 }}"#,
                 // Insert a comma between components so that it's valid JSON.
                 messages.join(","),
-            );
+            )
+            .expect("Failed to write JSON string");
         }
 
         // NOTE: We need to append a page feed character after each message since that's
