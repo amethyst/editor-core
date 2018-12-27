@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -8,19 +9,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* Readonly components require Deserialize. ([#38])
+* Read-only components no longer require Deserialize. ([#38])
 
 ### Added
 
-* Create and destroy entities at runtime ([#40])
+* Create and destroy entities at runtime. ([#40])
+* `sync_components`, `read_components`, `sync_resources`, and `read_resources`
+  macros have been added for registering many components/resources at once. ([#43])
+
+### Removed
+
+* The `type_set` macro and the related `SyncEditorBundle` methods have been
+  removed. ([#43])
+* `EditorSyncBundle::get_connection` has been made private. ([#43])
 
 ### Breaking Changes
 
-* Updated to depend on version 0.9 of amethyst. If your project uses amethyst 0.8, you'll
-  need to upgrade to amethyst 0.9 in order to use amethyst-editor-sync.
+### Upgraded to Amethyst 0.9
+
+Updated to depend on version 0.9 of amethyst. If your project uses amethyst 0.8, you'll
+need to upgrade to amethyst 0.9 in order to use amethyst-editor-sync.
+
+### Changed API for Registering Components/Resources
+
+The `type_set` macro has been removed, `SyncEditorBundle` no longer directly
+exposes a builder pattern. `sync_component` and the other registration
+methods take the same parameters, but they no longer return `&mut Self` and
+there are no variants that take a type set as a paramenter. Instead, we now
+provide some helper macros for easily registering many types at once. We
+recommend combining these with the [tap] crate to get a builder-like way of
+chaining method calls to create the bundle.
+
+For example, this setup logic:
+
+```rust
+let components = type_set![Ball, Paddle];
+let resources = type_set![ScoreBoard];
+let editor_sync_bundle = SyncEditorBundle::new()
+    .sync_default_types()
+    .sync_components(&components)
+    .sync_resources(&resources);
+```
+
+Would now be written like this:
+
+```rust
+let editor_sync_bundle = SyncEditorBundle::new()
+    .tap(SyncEditorBundle::sync_default_types)
+    .tap(|bundle| sync_components!(bundle, Ball, Paddle))
+    .tap(|bundle| sync_resources!(bundle, ScoreBoard));
+```
+
+### Setting Up Log Output
+
+`EditorSyncBundle::get_connection` has been made private. Instead of calling
+`get_connection` and passing the output to `EditorLogger::new`, you can pass
+a reference to the bundle directly:
+
+```rust
+EditorLogger::new(&editor_sync_bundle).start();
+```
 
 [#38]: https://github.com/randomPoison/amethyst-editor-sync/issues/38
 [#40]: https://github.com/randomPoison/amethyst-editor-sync/pull/40
+[#43]: https://github.com/randomPoison/amethyst-editor-sync/pull/43
+[tap]: https://crates.io/crates/tap
 
 ## [0.3.0] - 2018-10-26
 
