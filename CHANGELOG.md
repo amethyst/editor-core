@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Create and destroy entities at runtime. Thanks to [mh84]! ([#40])
 * `sync_components`, `read_components`, `sync_resources`, and `read_resources`
   macros have been added for registering many components/resources at once. ([#43])
+* `sync_default_types` now registers `FlyControlTag`, `HideCursor`, `WindowFocus`, `UiText`, `UiButton`, `UiTransform`, `CameraOrtho`, `DestroyAtTime`, `DestroyInTime`, `MouseReactive`, and `Named`. ([#47])
 
 ### Removed
 
@@ -87,6 +88,7 @@ EditorLogger::new(&editor_sync_bundle).start();
 [#40]: https://github.com/amethyst/amethyst-editor-sync/pull/40
 [#43]: https://github.com/amethyst/amethyst-editor-sync/pull/43
 [#46]: https://github.com/amethyst/amethyst-editor-sync/pull/46
+[#47]: https://github.com/amethyst/amethyst-editor-sync/pull/47
 [tap]: https://crates.io/crates/tap
 [mh84]: https://github.com/mh84
 
