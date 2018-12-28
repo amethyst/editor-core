@@ -19,7 +19,10 @@ use amethyst::{
 };
 
 use crate::{audio::Music, bundle::PongBundle};
+use amethyst_editor_sync::*;
+use serde::*;
 use std::time::Duration;
+use tap::*;
 
 const ARENA_HEIGHT: f32 = 100.0;
 const ARENA_WIDTH: f32 = 100.0;
@@ -41,15 +44,20 @@ const AUDIO_SCORE: &'static str = "audio/score.ogg";
 fn main() -> amethyst::Result<()> {
     use crate::pong::Pong;
 
+    amethyst::start_logger(Default::default());
+
     let editor_sync_bundle = SyncEditorBundle::new()
         .tap(SyncEditorBundle::sync_default_types)
         .tap(|bundle| sync_components!(bundle, Ball, Paddle))
         .tap(|bundle| sync_resources!(bundle, ScoreBoard));
-    EditorLogger::new(&editor_sync_bundle).start();
+    // EditorLogger::new(&editor_sync_bundle).start();
 
-    let app_root = application_root_dir();
+    let app_root = application_root_dir().unwrap();
+    println!("App root: {:?}", app_root);
 
-    let display_config_path = format!("{}/examples/pong/resources/display.ron", app_root);
+    let display_config_path = app_root
+        .clone()
+        .tap(|path| path.push("examples/pong/resources/display.ron"));
     let config = DisplayConfig::load(&display_config_path);
 
     let pipe = Pipeline::build().with_stage(
@@ -61,13 +69,18 @@ fn main() -> amethyst::Result<()> {
 
     let key_bindings_path = {
         if cfg!(feature = "sdl_controller") {
-            format!("{}/examples/pong/resources/input_controller.ron", app_root)
+            app_root
+                .clone()
+                .tap(|path| path.push("examples/pong/resources/input_controller.ron"))
         } else {
-            format!("{}/examples/pong/resources/input.ron", app_root)
+            app_root
+                .clone()
+                .tap(|path| path.push("examples/pong/resources/input.ron"))
         }
     };
 
-    let assets_dir = format!("{}/examples/assets/", app_root);
+    let assets_dir = app_root.clone().tap(|path| path.push("examples/assets"));
+    println!("Assets dir: {:?}", assets_dir);
 
     let game_data = GameDataBuilder::default()
         .with_bundle(

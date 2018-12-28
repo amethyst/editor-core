@@ -11,7 +11,7 @@ build = "build.rs"
 edition = "2018"
 
 [dependencies]
-amethyst = "0.10.0"
+amethyst = "0.10.1"
 crossbeam-channel = "0.3.2"
 log = "0.4.4"
 log-once = "0.2.0"
