@@ -1,4 +1,6 @@
+use crate::systems::*;
 use crate::types::IncomingComponent;
+use crate::types::*;
 use amethyst::core::{Result as BundleResult, SystemBundle};
 use amethyst::ecs::{Component, DispatcherBuilder};
 use amethyst::shred::Resource;
@@ -9,8 +11,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::net::UdpSocket;
 use std::time::Duration;
-use crate::systems::*;
-use crate::types::*;
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
@@ -114,11 +114,26 @@ impl SyncEditorBundle {
     ///
     /// Currently only a small set is supported. This will be expanded in the future.
     pub fn sync_default_types(&mut self) {
-        use amethyst::core::{GlobalTransform, Transform};
-        use amethyst::renderer::{AmbientColor, Camera, Light};
+        use amethyst::{
+            controls::{FlyControlTag, HideCursor, WindowFocus},
+            core::{GlobalTransform, Transform},
+            renderer::{AmbientColor, Camera, Light},
+            ui::{UiButton, UiText, UiTransform},
+        };
 
-        sync_components!(self, Light, Camera, Transform, GlobalTransform);
-        sync_resources!(self, AmbientColor);
+        sync_components!(
+            self,
+            Light,
+            Camera,
+            Transform,
+            GlobalTransform,
+            FlyControlTag,
+            UiButton,
+            UiTransform,
+        );
+        read_components!(self, UiText);
+        sync_resources!(self, AmbientColor, HideCursor);
+        read_resources!(self, WindowFocus);
     }
 
     /// Register a component for synchronizing with the editor. This will result in a
