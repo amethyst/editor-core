@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2018-12-28
+
 ### Added
 
-* Create and destroy entities at runtime. ([#40])
+* Create and destroy entities at runtime. Thanks to [mh84]! ([#40])
 * `sync_components`, `read_components`, `sync_resources`, and `read_resources`
   macros have been added for registering many components/resources at once. ([#43])
 
@@ -81,11 +83,12 @@ a reference to the bundle directly:
 EditorLogger::new(&editor_sync_bundle).start();
 ```
 
-[#38]: https://github.com/randomPoison/amethyst-editor-sync/issues/38
-[#40]: https://github.com/randomPoison/amethyst-editor-sync/pull/40
-[#43]: https://github.com/randomPoison/amethyst-editor-sync/pull/43
-[#46]: https://github.com/randomPoison/amethyst-editor-sync/pull/46
+[#38]: https://github.com/amethyst/amethyst-editor-sync/issues/38
+[#40]: https://github.com/amethyst/amethyst-editor-sync/pull/40
+[#43]: https://github.com/amethyst/amethyst-editor-sync/pull/43
+[#46]: https://github.com/amethyst/amethyst-editor-sync/pull/46
 [tap]: https://crates.io/crates/tap
+[mh84]: https://github.com/mh84
 
 ## [0.3.0] - 2018-10-26
 
@@ -93,7 +96,7 @@ EditorLogger::new(&editor_sync_bundle).start();
 
 * `sync_components` and `sync_resources` methods in `SyncEditorBundle` to synchronize all types
   in a `TypeSet`. `TypeSets` can be created through the `type_set!` macro to reduce the verbosity
-  of synchronizing many types. ([#19])
+  of synchronizing many types. Thanks to [mvesterli] for putting this together! ([#19])
 * `sync_default_types` method in `SyncEditorBundle` to easily synchronize some commonly used
   engine types. ([#20])
 * :tada: Support for editing `Resource` values! :tada: ([#25])
@@ -114,12 +117,13 @@ EditorLogger::new(&editor_sync_bundle).start();
 * `SyncResourceSystem` has been removed. If your code was directly registering the sync systems
   with your dispatcher, please update to using `SyncEditorBundle` instead. ([#25])
 
-[#19]: https://github.com/randomPoison/amethyst-editor-sync/issues/19
-[#20]: https://github.com/randomPoison/amethyst-editor-sync/issues/20
-[#21]: https://github.com/randomPoison/amethyst-editor-sync/pull/21
-[#25]: https://github.com/randomPoison/amethyst-editor-sync/pull/25
-[#33]: https://github.com/randomPoison/amethyst-editor-sync/pull/33
-[#37]: https://github.com/randomPoison/amethyst-editor-sync/pull/37
+[#19]: https://github.com/amethyst/amethyst-editor-sync/issues/19
+[#20]: https://github.com/amethyst/amethyst-editor-sync/issues/20
+[#21]: https://github.com/amethyst/amethyst-editor-sync/pull/21
+[#25]: https://github.com/amethyst/amethyst-editor-sync/pull/25
+[#33]: https://github.com/amethyst/amethyst-editor-sync/pull/33
+[#37]: https://github.com/amethyst/amethyst-editor-sync/pull/37
+[mvesterli]: https://github.com/mvesterli
 
 ## [0.2.0] - 2018-10-14
 
@@ -138,10 +142,10 @@ EditorLogger::new(&editor_sync_bundle).start();
 The state messages sent may now omit some or all of the data fields. Editors should be updated to
 handle this case by not attempting to update their corresponding local data.
 
-[#14]: https://github.com/randomPoison/amethyst-editor-sync/pull/14
-[#15]: https://github.com/randomPoison/amethyst-editor-sync/issues/15
-[#17]: https://github.com/randomPoison/amethyst-editor-sync/pull/17
-[#23]: https://github.com/randomPoison/amethyst-editor-sync/pull/23
+[#14]: https://github.com/amethyst/amethyst-editor-sync/pull/14
+[#15]: https://github.com/amethyst/amethyst-editor-sync/issues/15
+[#17]: https://github.com/amethyst/amethyst-editor-sync/pull/17
+[#23]: https://github.com/amethyst/amethyst-editor-sync/pull/23
 
 ## [0.1.0] - 2018-10-04
 
@@ -151,10 +155,11 @@ handle this case by not attempting to update their corresponding local data.
 * `SerializableEntity` as a temporary solution for allowing components that contain `Entity` values to be serialized.
 * Send log output with `EditorLogger`. ([#11])
 
-[#8]: https://github.com/randomPoison/amethyst-editor-sync/pull/8
-[#11]: https://github.com/randomPoison/amethyst-editor-sync/pull/11
+[#8]: https://github.com/amethyst/amethyst-editor-sync/pull/8
+[#11]: https://github.com/amethyst/amethyst-editor-sync/pull/11
 
-[Unreleased]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/randomPoison/amethyst-editor-sync/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/randomPoison/amethyst-editor-sync/compare/a1a710124bd7d2a132e49433596ee48420729e69...v0.1.0
+[Unreleased]: https://github.com/amethyst/amethyst-editor-sync/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/amethyst/amethyst-editor-sync/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/amethyst/amethyst-editor-sync/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/amethyst/amethyst-editor-sync/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/amethyst/amethyst-editor-sync/compare/a1a7101...v0.1.0

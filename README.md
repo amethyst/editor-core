@@ -8,10 +8,6 @@ A crate that allows an [Amethyst] game to communicate with an editor over [IPC].
 developed in conjunction with [an Electron editor][editor], but is intended to be general enough to
 facilitate development of other editor front-ends.
 
-> NOTE: This project is not an official part of the Amethyst project. It is being built in
-> coordination with the Amethyst developers, but the Amethyst core team takes no responsibility
-> for any nonsense happening here.
-
 ## Setup and Usage
 
 Here's an example of how to setup an Amethyst game to communicate with the editor:
@@ -107,7 +103,7 @@ property going forward.
 
 [Amethyst]: https://www.amethyst.rs/
 [IPC]: https://en.wikipedia.org/wiki/Inter-process_communication
-[editor]: https://github.com/randomPoison/amethyst-editor
+[editor]: https://github.com/amethyst/amethyst-editor
 [Rust]: https://www.rust-lang.org/
 [rustup]: https://rustup.rs/
 [Rust Code of Conduct]: https://www.rust-lang.org/conduct.html
