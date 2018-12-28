@@ -52,12 +52,9 @@ fn main() -> amethyst::Result<()> {
         .tap(|bundle| sync_resources!(bundle, ScoreBoard));
     // EditorLogger::new(&editor_sync_bundle).start();
 
-    let app_root = application_root_dir().unwrap();
-    println!("App root: {:?}", app_root);
+    let app_root = application_root_dir();
 
-    let display_config_path = app_root
-        .clone()
-        .tap(|path| path.push("examples/pong/resources/display.ron"));
+    let display_config_path = format!("{}/examples/pong/resources/display.ron", app_root);
     let config = DisplayConfig::load(&display_config_path);
 
     let pipe = Pipeline::build().with_stage(
@@ -69,18 +66,13 @@ fn main() -> amethyst::Result<()> {
 
     let key_bindings_path = {
         if cfg!(feature = "sdl_controller") {
-            app_root
-                .clone()
-                .tap(|path| path.push("examples/pong/resources/input_controller.ron"))
+            format!("{}/examples/pong/resources/input_controller.ron", app_root)
         } else {
-            app_root
-                .clone()
-                .tap(|path| path.push("examples/pong/resources/input.ron"))
+            format!("{}/examples/pong/resources/input.ron", app_root)
         }
     };
 
-    let assets_dir = app_root.clone().tap(|path| path.push("examples/assets"));
-    println!("Assets dir: {:?}", assets_dir);
+    let assets_dir = format!("{}/examples/assets/", app_root);
 
     let game_data = GameDataBuilder::default()
         .with_bundle(
