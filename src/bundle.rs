@@ -116,18 +116,25 @@ impl SyncEditorBundle {
     pub fn sync_default_types(&mut self) {
         use amethyst::{
             controls::{FlyControlTag, HideCursor, WindowFocus},
-            core::{GlobalTransform, Transform},
+            core::{GlobalTransform, Named, Transform},
             renderer::{AmbientColor, Camera, Light},
-            ui::{UiButton, UiText, UiTransform},
+            ui::{MouseReactive, UiButton, UiText, UiTransform},
+            utils::ortho_camera::CameraOrtho,
+            utils::time_destroy::{DestroyAtTime, DestroyInTime},
         };
 
         sync_components!(
             self,
-            Light,
             Camera,
-            Transform,
-            GlobalTransform,
+            CameraOrtho,
+            DestroyAtTime,
+            DestroyInTime,
             FlyControlTag,
+            GlobalTransform,
+            Light,
+            MouseReactive,
+            Named,
+            Transform,
             UiButton,
             UiTransform,
         );
