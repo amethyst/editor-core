@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-* Read-only components no longer require Deserialize. ([#38])
-
 ### Added
 
 * Create and destroy entities at runtime. ([#40])
@@ -23,14 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   removed. ([#43])
 * `EditorSyncBundle::get_connection` has been made private. ([#43])
 
+### Fixed
+
+* Read-only components no longer require `Deserialize`. ([#38])
+
 ### Breaking Changes
 
-### Upgraded to Amethyst 0.9
+### Upgraded to Amethyst 0.10 ([#46])
 
-Updated to depend on version 0.9 of amethyst. If your project uses amethyst 0.8, you'll
-need to upgrade to amethyst 0.9 in order to use amethyst-editor-sync.
+Updated to depend on version 0.10 of amethyst. If your project uses a previous
+version of Amethyst, you'll need to upgrade to amethyst 0.10 in order to use
+the latest version of amethyst-editor-sync.
 
-### Changed API for Registering Components/Resources
+### Changed API for Registering Components/Resources ([#43])
 
 The `type_set` macro has been removed, `SyncEditorBundle` no longer directly
 exposes a builder pattern. `sync_component` and the other registration
@@ -60,7 +61,17 @@ let editor_sync_bundle = SyncEditorBundle::new()
     .tap(|bundle| sync_resources!(bundle, ScoreBoard));
 ```
 
-### Setting Up Log Output
+If you prefer to not use [tap] (or method chaining in general), you may also
+make your `SyncEditorBundle` mutable and modify it directly:
+
+```rust
+let mut bundle = SyncEditorBundle::new();
+bundle.sync_default_types();
+sync_components!(bundle, Ball, Paddle);
+sync_resources!(bundle, ScoreBoard);
+```
+
+### Setting Up Log Output ([#43])
 
 `EditorSyncBundle::get_connection` has been made private. Instead of calling
 `get_connection` and passing the output to `EditorLogger::new`, you can pass
@@ -73,6 +84,7 @@ EditorLogger::new(&editor_sync_bundle).start();
 [#38]: https://github.com/randomPoison/amethyst-editor-sync/issues/38
 [#40]: https://github.com/randomPoison/amethyst-editor-sync/pull/40
 [#43]: https://github.com/randomPoison/amethyst-editor-sync/pull/43
+[#46]: https://github.com/randomPoison/amethyst-editor-sync/pull/46
 [tap]: https://crates.io/crates/tap
 
 ## [0.3.0] - 2018-10-26

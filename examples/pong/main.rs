@@ -1,9 +1,6 @@
 //! TODO: Rewrite for new renderer.
 
-extern crate amethyst;
-extern crate amethyst_editor_sync;
-extern crate serde;
-extern crate tap;
+use amethyst;
 
 mod audio;
 mod bundle;
@@ -16,17 +13,16 @@ use amethyst::{
     ecs::prelude::{Component, DenseVecStorage},
     input::InputBundle,
     prelude::*,
-    renderer::{DisplayConfig, DrawSprite, Pipeline, RenderBundle, Stage},
+    renderer::{DisplayConfig, DrawFlat2D, Pipeline, RenderBundle, Stage},
     ui::{DrawUi, UiBundle},
     utils::application_root_dir,
 };
+
+use crate::{audio::Music, bundle::PongBundle};
 use amethyst_editor_sync::*;
 use serde::*;
-use tap::*;
-
-use crate::audio::Music;
-use crate::bundle::PongBundle;
 use std::time::Duration;
+use tap::*;
 
 const ARENA_HEIGHT: f32 = 100.0;
 const ARENA_WIDTH: f32 = 100.0;
@@ -38,21 +34,23 @@ const BALL_VELOCITY_X: f32 = 75.0;
 const BALL_VELOCITY_Y: f32 = 50.0;
 const BALL_RADIUS: f32 = 2.0;
 
-const AUDIO_MUSIC: &[&str] = &[
+const AUDIO_MUSIC: &'static [&'static str] = &[
     "audio/Computer_Music_All-Stars_-_Wheres_My_Jetpack.ogg",
     "audio/Computer_Music_All-Stars_-_Albatross_v2.ogg",
 ];
-const AUDIO_BOUNCE: &str = "audio/bounce.ogg";
-const AUDIO_SCORE: &str = "audio/score.ogg";
+const AUDIO_BOUNCE: &'static str = "audio/bounce.ogg";
+const AUDIO_SCORE: &'static str = "audio/score.ogg";
 
 fn main() -> amethyst::Result<()> {
     use crate::pong::Pong;
+
+    amethyst::start_logger(Default::default());
 
     let editor_sync_bundle = SyncEditorBundle::new()
         .tap(SyncEditorBundle::sync_default_types)
         .tap(|bundle| sync_components!(bundle, Ball, Paddle))
         .tap(|bundle| sync_resources!(bundle, ScoreBoard));
-    EditorLogger::new(&editor_sync_bundle).start();
+    // EditorLogger::new(&editor_sync_bundle).start();
 
     let app_root = application_root_dir();
 
@@ -62,7 +60,7 @@ fn main() -> amethyst::Result<()> {
     let pipe = Pipeline::build().with_stage(
         Stage::with_backbuffer()
             .clear_target([0.0, 0.0, 0.0, 1.0], 1.0)
-            .with_pass(DrawSprite::new())
+            .with_pass(DrawFlat2D::new())
             .with_pass(DrawUi::new()),
     );
 
