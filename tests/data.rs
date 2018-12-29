@@ -62,7 +62,11 @@ fn large_world() -> amethyst::Result<()> {
     run_world(10_000)
 }
 
+// NOTE: This is ignored for now because it's super slow and sometimes fails on
+// Windows. We absolutely need to be able to run on worlds with more than
+// 100,000 entities, so we'll need to revisit this as an optimization pass.
 #[test]
+#[ignore]
 fn huge_world() -> amethyst::Result<()> {
     run_world(100_000)
 }
