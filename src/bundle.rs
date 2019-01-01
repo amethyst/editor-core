@@ -118,7 +118,7 @@ impl SyncEditorBundle {
             controls::{FlyControlTag, HideCursor, WindowFocus},
             core::{GlobalTransform, Named, Transform},
             renderer::{AmbientColor, Camera, Light},
-            ui::{MouseReactive, UiButton, UiText, UiTransform},
+            ui::{UiButton, UiText, UiTransform},
             utils::ortho_camera::CameraOrtho,
             utils::time_destroy::{DestroyAtTime, DestroyInTime},
         };
@@ -132,7 +132,6 @@ impl SyncEditorBundle {
             FlyControlTag,
             GlobalTransform,
             Light,
-            MouseReactive,
             Named,
             Transform,
             UiButton,
