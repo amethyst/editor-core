@@ -46,7 +46,7 @@ fn main() -> amethyst::Result<()> {
 
     amethyst::start_logger(Default::default());
 
-    let editor_sync_bundle = SyncEditorBundle::new()
+    let editor_sync_bundle = SyncEditorBundle::default()
         .tap(SyncEditorBundle::sync_default_types)
         .tap(|bundle| sync_components!(bundle, Ball, Paddle))
         .tap(|bundle| sync_resources!(bundle, ScoreBoard));

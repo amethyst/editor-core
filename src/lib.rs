@@ -30,6 +30,9 @@
 //! conjuction with the helper macros to succinctly register a variety of
 //! custom types.
 //!
+//! **It is highly recommended to register the bundle last, to ensure the editor
+//! receives values after all systems have updated them**
+//!
 //! # Examples
 //!
 //! ```
@@ -47,7 +50,7 @@
 //! # fn main() -> Result<(), amethyst::Error> {
 //! // Create a SyncEditorBundle which will create all necessary systems to send the components
 //! // to the editor.
-//! let editor_sync_bundle = SyncEditorBundle::new()
+//! let editor_sync_bundle = SyncEditorBundle::default()
 //!
 //!     // Register the default types from the engine.
 //!     .tap(SyncEditorBundle::sync_default_types)
@@ -90,7 +93,7 @@
 //! ```
 //!
 //! [`SyncEditorBundle`]: ./struct.SyncEditorBundle.html
-//! [`SyncEditorBundle::new`]: ./struct.SyncEditorBundle.html#method.new
+//! [`SyncEditorBundle::default()`]: ./struct.SyncEditorBundle.html#method.default
 //! [`sync_components`]: ./macro.sync_components.html
 //! [`read_components`]: ./macro.read_components.html
 //! [`sync_resources`]: ./macro.sync_resources.html

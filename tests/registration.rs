@@ -11,7 +11,7 @@ use tap::*;
 
 #[test]
 fn empty() {
-    let editor_bundle = SyncEditorBundle::new().tap(SyncEditorBundle::sync_default_types);
+    let editor_bundle = SyncEditorBundle::default().tap(SyncEditorBundle::sync_default_types);
 
     let _ = GameDataBuilder::default().with_bundle(editor_bundle);
 }
@@ -25,7 +25,7 @@ fn register_component() {
         type Storage = DenseVecStorage<Self>;
     }
 
-    let editor_bundle = SyncEditorBundle::new()
+    let editor_bundle = SyncEditorBundle::default()
         .tap(SyncEditorBundle::sync_default_types)
         .tap(|bundle| sync_components!(bundle, Foo));
 
