@@ -27,7 +27,7 @@ use tap::*;
 fn main() -> Result<(), amethyst::Error> {
     // Create a `SyncEditorBundle` which will register all necessary systems to serialize and send
     // data to the editor.
-    let editor_bundle = SyncEditorBundle::new()
+    let editor_bundle = SyncEditorBundle::default()
         // Register the default types from the engine.
         .tap(SyncEditorBundle::sync_default_types)
         // Register the components and resources specified above.

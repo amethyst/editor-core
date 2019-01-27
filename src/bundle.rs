@@ -14,7 +14,7 @@ use std::time::Duration;
 
 /// Bundles all necessary systems for serializing all registered components and resources and
 /// sending them to the editor.
-pub struct SyncEditorBundle {
+pub struct SyncEditorBundle<'a> {
     send_interval: Duration,
     read_systems: Vec<Box<dyn RegisterReadSystem>>,
     write_systems: Vec<Box<dyn RegisterWriteSystem>>,
@@ -22,7 +22,7 @@ pub struct SyncEditorBundle {
     receiver: Receiver<SerializedData>,
     component_map: ComponentMap,
     resource_map: ResourceMap,
-    socket: UdpSocket,
+    bind_address: &'a str,
 }
 
 /// Registers one or more components to be syncronized with the editor.
@@ -89,14 +89,10 @@ macro_rules! read_resources {
     };
 }
 
-impl SyncEditorBundle {
+impl<'a> SyncEditorBundle<'a> {
     /// Construct an empty bundle.
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind socket");
-        socket
-            .set_nonblocking(true)
-            .expect("Failed to make editor socket nonblocking");
 
         SyncEditorBundle {
             send_interval: Duration::from_millis(200),
@@ -106,7 +102,7 @@ impl SyncEditorBundle {
             receiver,
             component_map: HashMap::new(),
             resource_map: HashMap::new(),
-            socket,
+            bind_address: "127.0.0.1:0"
         }
     }
 
@@ -246,20 +242,55 @@ impl SyncEditorBundle {
         self.send_interval = send_interval;
     }
 
+    /// Sets the address that the UDP port will bind to.
+    ///
+    /// Format should be `address:port`, defaults to `127.0.0.1:0`
+    pub fn bind_address(&mut self, bind_address: &'a str) {
+        self.bind_address = bind_address;
+    }
+
     /// Retrieve a connection to send messages to the editor via the [`SyncEditorSystem`].
     pub(crate) fn connection(&self) -> EditorConnection {
         self.sender.clone()
     }
 }
 
-impl Default for SyncEditorBundle {
+impl<'a> Default for SyncEditorBundle<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
+impl<'a, 'b, 'c> SystemBundle<'a, 'b> for SyncEditorBundle<'c> {
     fn build(self, dispatcher: &mut DispatcherBuilder<'a, 'b>) -> BundleResult<()> {
+        let socket = UdpSocket::bind(self.bind_address).expect("Failed to bind socket");
+        socket
+            .set_nonblocking(true)
+            .expect("Failed to make editor socket nonblocking");
+
+        // Ensure that all previous systems are done before syncing.
+        dispatcher.add_barrier();
+
+        // Register the systems for serializing each of the component/resource types.
+        for read_system in self.read_systems {
+            read_system.register(dispatcher, &self.sender);
+        }
+
+        // Ensure all components/resources are read before sending.
+        dispatcher.add_barrier();
+
+        // Create the sender system, which will update the editor on all tracked
+        // components/resources/entities.
+        let sender_system = EditorSenderSystem::from_channel(
+            self.receiver,
+            self.send_interval,
+            socket.try_clone().expect("failed to clone socket"),
+        );
+        dispatcher.add(sender_system, "editor_sender_system", &[]);
+
+        // Ensure all components/resources are sent before writing.
+        dispatcher.add_barrier();
+
         // Create the receiver system, which will read any incoming messages from the
         // editor and pass them to the corresponding systems for applying changes to
         // components/resources/entities.
@@ -268,9 +299,18 @@ impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
             self.component_map.clone(),
             self.resource_map.clone(),
             entity_sender,
-            self.socket.try_clone().unwrap(),
+            socket,
         );
         dispatcher.add(receiver_system, "editor_receiver_system", &[]);
+
+        // Register the system that applies entity changes (creates/destroys entities).
+        // This must also depend on the editor receiver system so that it can apply
+        // an entity changes specified by the editor.
+        dispatcher.add(
+            EntityHandlerSystem::new(entity_receiver),
+            "entity_creator",
+            &["editor_receiver_system"],
+        );
 
         // Register the systems for each of the component/resource types that support
         // being edited at runtime. Internally these declare a dependency on the
@@ -279,29 +319,8 @@ impl<'a, 'b> SystemBundle<'a, 'b> for SyncEditorBundle {
             write_system.register(dispatcher);
         }
 
-        // Register the system that applies entity changes (creates/destroys entities).
-        // This must also depend on the editor reciever system so that it can apply
-        // an entity changes specified by the editor.
-        dispatcher.add(
-            EntityHandlerSystem::new(entity_receiver),
-            "entity_creator",
-            &["editor_receiver_system"],
-        );
-
-        // Register the systems for serializing each of the component/resource types.
-        for read_system in self.read_systems {
-            read_system.register(dispatcher, &self.sender);
-        }
-
-        // Add a barrier to ensure that all of the
+        // Ensure all components/resources/entities are written before continuing the dispatch
         dispatcher.add_barrier();
-
-        let sender_system = EditorSenderSystem::from_channel(
-            self.receiver,
-            Duration::from_millis(200),
-            self.socket,
-        );
-        dispatcher.add(sender_system, "editor_sender_system", &[]);
 
         Ok(())
     }
@@ -371,7 +390,7 @@ where
         dispatcher.add(
             WriteComponentSystem::<T>::new(self.name, self.receiver),
             "",
-            &["editor_receiver_system"],
+            &["entity_creator"],
         );
     }
 }
@@ -384,7 +403,7 @@ where
         dispatcher.add(
             WriteResourceSystem::<T>::new(self.name, self.receiver),
             "",
-            &["editor_receiver_system"],
+            &["entity_creator"],
         );
     }
 }
@@ -405,7 +424,7 @@ mod test {
     /// Tests that the various `sync_*` macros work without a trailing comma.
     #[test]
     fn no_trailing_comma() {
-        let mut bundle = SyncEditorBundle::new();
+        let mut bundle = SyncEditorBundle::default();
         sync_components!(bundle, Light, Camera);
         read_components!(bundle, Light, Camera);
         sync_resources!(bundle, AmbientColor);
@@ -415,7 +434,7 @@ mod test {
     /// Tests that the various `sync_*` macros work with a trailing comma.
     #[test]
     fn trailing_comma() {
-        let mut bundle = SyncEditorBundle::new();
+        let mut bundle = SyncEditorBundle::default();
         sync_components!(bundle, Light, Camera,);
         read_components!(bundle, Light, Camera,);
         sync_resources!(bundle, AmbientColor,);

@@ -39,7 +39,7 @@ impl SimpleState for TestState {
 }
 
 fn run_world(num_entities: usize) -> amethyst::Result<()> {
-    let editor_sync_bundle = SyncEditorBundle::new();
+    let editor_sync_bundle = SyncEditorBundle::default();
     let game_data = GameDataBuilder::default().with_bundle(editor_sync_bundle)?;
     let mut game = Application::build(".", TestState::new(num_entities))?.build(game_data)?;
     game.run();
