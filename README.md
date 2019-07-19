@@ -5,7 +5,7 @@
 [![MIT/Apache](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](COPYING.txt)
 
 A crate that allows an [Amethyst] game to communicate with an editor over [IPC]. This is being
-developed in conjunction with [an Electron editor][editor], but is intended to be general enough to
+developed in conjunction with [a WASM (Yew & web_view) editor][editor], but is intended to be general enough to
 facilitate development of other editor front-ends.
 
 ## Setup and Usage
@@ -57,7 +57,7 @@ struct BarResource {
 ```
 
 Once your game is setup using `amethyst-editor-sync`, it will automatically connect to any running
-editor instance on your machine. You can use [the Electron editor][editor] for visualization once
+editor instance on your machine. You can use [the WASM editor][editor] for visualization once
 this is setup.
 
 ## Motivation and Philosophy
@@ -79,7 +79,7 @@ increase the robustness of the editor: If the game crashes, it cannot crash or c
 You'll need a stable version of [Rust] installed, which can be done via [rustup]. Install the
 latest stable toolchain (if you don't already have a stable toolchain installed) and then clone
 the repository. You can run the pong example for testing by running `cargo run --example pong`.
-If you need to test functionality against an editor, you can use [the Electron editor][editor].
+If you need to test functionality against an editor, you can use [the WASM editor][editor].
 
 For any feature requests, please open an issue in the GitHub issue tracker. Pull requests are also
 greatly appreciated :heart:
@@ -103,7 +103,7 @@ property going forward.
 
 [Amethyst]: https://www.amethyst.rs/
 [IPC]: https://en.wikipedia.org/wiki/Inter-process_communication
-[editor]: https://github.com/amethyst/amethyst-editor
+[editor]: https://github.com/amethyst/atelier-editor
 [Rust]: https://www.rust-lang.org/
 [rustup]: https://rustup.rs/
 [Rust Code of Conduct]: https://www.rust-lang.org/conduct.html
